@@ -36,21 +36,21 @@ setup-opensim: ## Setup OpenSim dependencies if needed
 	@echo "Setting up OpenSim dependencies for current platform..."
 	@if [ "$$(uname)" = "Darwin" ]; then \
 		echo "Detected macOS, running macOS setup script..."; \
-        chmod +x ./scripts/setup_opensim_macos.sh; \
-		./scripts/setup_opensim_macos.sh; \
+        chmod +x ./scripts/opensim/setup_opensim_macos.sh; \
+		./scripts/opensim/setup_opensim_macos.sh; \
 	elif [ "$$(uname)" = "Linux" ]; then \
 		echo "Detected Linux, running Linux setup script..."; \
-        chmod +x ./scripts/setup_opensim_linux.sh; \
-		./scripts/setup_opensim_linux.sh; \
+        chmod +x ./scripts/opensim/setup_opensim_linux.sh; \
+		./scripts/opensim/setup_opensim_linux.sh; \
 	elif [ "$$(uname -s | cut -c1-10)" = "MINGW32_NT" ] || [ "$$(uname -s | cut -c1-10)" = "MINGW64_NT" ] || [ "$$(uname -s | cut -c1-9)" = "CYGWIN_NT" ]; then \
 		echo "Detected Windows, running Windows setup script..."; \
-		powershell.exe -ExecutionPolicy Bypass -File ./scripts/setup_opensim_windows.ps1; \
+		powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1; \
 	else \
 		echo "Unsupported platform: $$(uname)"; \
 		echo "Please run the appropriate setup script manually:"; \
-		echo "  - Linux: ./scripts/setup_opensim_linux.sh"; \
-		echo "  - macOS: ./scripts/setup_opensim_macos.sh"; \
-		echo "  - Windows: powershell -ExecutionPolicy Bypass -File ./scripts/setup_opensim_windows.ps1"; \
+		echo "  - Linux: ./scripts/opensim/setup_opensim_linux.sh"; \
+		echo "  - macOS: ./scripts/opensim/setup_opensim_macos.sh"; \
+		echo "  - Windows: powershell -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1"; \
 		exit 1; \
 	fi
 

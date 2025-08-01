@@ -65,17 +65,17 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
         if(WIN32)
             set(LIB_EXT ".lib")
             set(DLL_EXT ".dll")
-            set(SETUP_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/setup_opensim_windows.ps1")
+            set(SETUP_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/opensim/setup_opensim_windows.ps1")
             set(TEST_LIB "${OPENSIM_INSTALL_DIR}/lib/osimCommon${LIB_EXT}")
         elseif(APPLE)
             set(LIB_EXT ".dylib")
             set(DLL_EXT ".dylib")
-            set(SETUP_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/setup_opensim_macos.sh")
+            set(SETUP_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/opensim/setup_opensim_macos.sh")
             set(TEST_LIB "${OPENSIM_BUILD_DIR}/libosimCommon${LIB_EXT}")
         else()
             set(LIB_EXT ".so")
             set(DLL_EXT ".so")
-            set(SETUP_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/setup_opensim_linux.sh")
+            set(SETUP_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/opensim/setup_opensim_linux.sh")
             set(TEST_LIB "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimCommon${LIB_EXT}")
         endif()
 
@@ -220,12 +220,13 @@ macro(OpenSimAddPythonModule)
     set(_output_cxx_file "${_output_file_prefix}.cxx")
     set(_output_header_file "${_output_file_prefix}.h")
     set(_interface_file
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/opensim-core/Bindings/Python/swig/python_${OSIMSWIGPY_MODULE}.i")
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/pyosim/swig/pyosim_${OSIMSWIGPY_MODULE}.i")
 
     # SWIG command arguments
     set(_swig_common_args -c++ -python
             -I${CMAKE_CURRENT_SOURCE_DIR}/src/opensim-core
             -I${CMAKE_CURRENT_SOURCE_DIR}/src/opensim-core/Bindings
+            -I${CMAKE_CURRENT_SOURCE_DIR}/src/opensim-core/Bindings/Python/swig
             -I${CMAKE_CURRENT_SOURCE_DIR}/src/opensim-core/Vendors/lepton/include
             -I${OPENSIM_INSTALL_DIR}/sdk/Simbody/include
             -I${OPENSIM_INSTALL_DIR}/sdk/Simbody/include/simbody
@@ -420,8 +421,33 @@ OpenSimPutFileInPythonPackage("${CMAKE_CURRENT_BINARY_DIR}/version.py" pyosim)
 # __init__.py - use our custom pyosim __init__.py instead of OpenSim's
 OpenSimPutFileInPythonPackage("${CMAKE_CURRENT_SOURCE_DIR}/src/pyosim/__init__.py" .)
 
+# py.typed marker file for PEP 561 compliance
+OpenSimPutFileInPythonPackage("${CMAKE_CURRENT_SOURCE_DIR}/src/pyosim/py.typed" .)
+
+# Generate stub files for IDE support
+set(STUB_FILES_DIR "${CMAKE_CURRENT_BINARY_DIR}/stubs")
+add_custom_command(
+    OUTPUT "${STUB_FILES_DIR}/pyosim/__init__.pyi"
+    DEPENDS ${OPENSIM_PYTHON_PACKAGE_LIBRARY_TARGETS}
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/scripts/python/generate_stubs.py"
+        "${OPENSIM_PYTHON_BINARY_DIR}"
+        "${STUB_FILES_DIR}"
+    COMMENT "Generating Python stub files for IDE support"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# Copy stub files to the python package directory
+add_custom_command(
+    OUTPUT "${OPENSIM_PYTHON_BINARY_DIR}/pyosim-stubs"
+    DEPENDS "${STUB_FILES_DIR}/pyosim/__init__.pyi"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${STUB_FILES_DIR}/pyosim"
+        "${OPENSIM_PYTHON_BINARY_DIR}/pyosim-stubs"
+    COMMENT "Copying stub files to package directory"
+)
+
 # Umbrella target for assembling the python bindings in the build tree.
-add_custom_target(PythonBindings ALL DEPENDS ${OPENSIM_PYTHON_PACKAGE_FILES})
+add_custom_target(PythonBindings ALL DEPENDS ${OPENSIM_PYTHON_PACKAGE_FILES} "${OPENSIM_PYTHON_BINARY_DIR}/pyosim-stubs")
 
 # Require the libraries to be built.
 add_dependencies(PythonBindings ${OPENSIM_PYTHON_PACKAGE_LIBRARY_TARGETS})
@@ -472,3 +498,8 @@ if(PYOSIM_BUILD_WITH_OPENSIM AND NOT WIN32)
         endif()
     endforeach()
 endif()
+
+# Install stub files for IDE support
+install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/stubs/pyosim/"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/pyosim-stubs"
+    FILES_MATCHING PATTERN "*.pyi")

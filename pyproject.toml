@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core>=0.3.3", "numpy"]
+requires = ["scikit-build-core>=0.3.3", "numpy", "mypy"]
 build-backend = "scikit_build_core.build"
 
 
@@ -34,6 +34,9 @@ test = ["pytest"]
 [tool.scikit-build]
 wheel.expand-macos-universal-tags = true
 # Don't specify wheel.packages - let CMake handle the installation
+
+# Include stub files in the wheel for PEP 561 compliance
+wheel.packages = ["pyosim", "pyosim-stubs"]
 
 
 [tool.cibuildwheel]
