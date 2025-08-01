@@ -417,8 +417,8 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/opensim-core/Bindings/Python/vers
 # Copy the configured version.py for each build configuration.
 OpenSimPutFileInPythonPackage("${CMAKE_CURRENT_BINARY_DIR}/version.py" pyosim)
 
-# __init__.py.
-OpenSimPutFileInPythonPackage("${CMAKE_CURRENT_SOURCE_DIR}/src/opensim-core/Bindings/Python/__init__.py" pyosim)
+# __init__.py - use our custom pyosim __init__.py instead of OpenSim's
+OpenSimPutFileInPythonPackage("${CMAKE_CURRENT_SOURCE_DIR}/src/pyosim/__init__.py" .)
 
 # Umbrella target for assembling the python bindings in the build tree.
 add_custom_target(PythonBindings ALL DEPENDS ${OPENSIM_PYTHON_PACKAGE_FILES})
