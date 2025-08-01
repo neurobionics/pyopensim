@@ -94,37 +94,52 @@ except ImportError:
 
 # For backwards compatibility with OpenSim's flat namespace,
 # also import commonly used classes at the top level
+if simbody:
+    # SimTK and geometry classes from simbody
+    for cls_name in ['Vec3', 'Rotation', 'Transform', 'Inertia', 'Gray', 'SimTK_PI']:
+        try:
+            cls = getattr(simbody, cls_name)
+            globals()[cls_name] = cls
+        except AttributeError:
+            pass  # Class doesn't exist in this module
+
 if common:
     # Core modeling classes
-    try:
-        from .common import Component, Property
-        from .common import Vec3, Rotation, Transform
-        from .common import Storage, Array
-    except (ImportError, AttributeError):
-        pass
+    for cls_name in ['Component', 'Property', 'Storage', 'Array', 'StepFunction', 'ConsoleReporter']:
+        try:
+            cls = getattr(common, cls_name)
+            globals()[cls_name] = cls
+        except AttributeError:
+            pass  # Class doesn't exist in this module
 
 if simulation:
-    # Simulation classes
-    try:
-        from .simulation import Model, Manager, State
-        from .simulation import InverseKinematicsSolver, InverseDynamicsSolver
-    except (ImportError, AttributeError):
-        pass
+    # Simulation classes - import each individually to avoid failures
+    for cls_name in ['Model', 'Manager', 'State', 'Body', 'PinJoint', 'PhysicalOffsetFrame', 
+                     'Ellipsoid', 'Millard2012EquilibriumMuscle', 'PrescribedController',
+                     'InverseKinematicsSolver', 'InverseDynamicsSolver']:
+        try:
+            cls = getattr(simulation, cls_name)
+            globals()[cls_name] = cls
+        except AttributeError:
+            pass  # Class doesn't exist in this module
 
 if actuators:
     # Common actuator classes
-    try:
-        from .actuators import Muscle, CoordinateActuator, PointActuator
-    except (ImportError, AttributeError):
-        pass
+    for cls_name in ['Muscle', 'CoordinateActuator', 'PointActuator']:
+        try:
+            cls = getattr(actuators, cls_name)
+            globals()[cls_name] = cls
+        except AttributeError:
+            pass  # Class doesn't exist in this module
 
 if tools:
     # Analysis tools
-    try:
-        from .tools import InverseKinematicsTool, InverseDynamicsTool
-        from .tools import ForwardTool, AnalyzeTool
-    except (ImportError, AttributeError):
-        pass
+    for cls_name in ['InverseKinematicsTool', 'InverseDynamicsTool', 'ForwardTool', 'AnalyzeTool']:
+        try:
+            cls = getattr(tools, cls_name)
+            globals()[cls_name] = cls
+        except AttributeError:
+            pass  # Class doesn't exist in this module
 
 # Import version
 try:
@@ -147,10 +162,14 @@ __all__ = [
     # Optional modules (if available)
     'examplecomponents', 'moco', 'report',
     # Common classes at top level for convenience
-    'Model', 'Component', 'Property',
-    'Vec3', 'Rotation', 'Transform',
+    'Model', 'Manager', 'State', 'Body',
+    'Component', 'Property',
+    'Vec3', 'Rotation', 'Transform', 'Inertia',
+    'PinJoint', 'PhysicalOffsetFrame', 'Ellipsoid',
+    'Millard2012EquilibriumMuscle', 'PrescribedController',
+    'StepFunction', 'ConsoleReporter',
+    'Gray', 'SimTK_PI',
     'Storage', 'Array',
-    'Manager', 'State',
     'InverseKinematicsSolver', 'InverseDynamicsSolver',
     'Muscle', 'CoordinateActuator', 'PointActuator',
     'InverseKinematicsTool', 'InverseDynamicsTool',
