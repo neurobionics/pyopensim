@@ -217,7 +217,7 @@ echo "Building OpenSim dependencies..."
 mkdir -p "$WORKSPACE_DIR/opensim-dependencies-build"
 cd "$WORKSPACE_DIR/opensim-dependencies-build"
 
-cmake "$OPENSIM_ROOT/opensim-core/dependencies" \
+cmake "$OPENSIM_ROOT/src/opensim-core/dependencies" \
     -DCMAKE_INSTALL_PREFIX="$WORKSPACE_DIR/opensim-dependencies-install" \
     -DCMAKE_BUILD_TYPE=$DEBUG_TYPE \
     -DSUPERBUILD_ezc3d=ON \
@@ -230,7 +230,7 @@ echo "Building OpenSim core..."
 mkdir -p "$WORKSPACE_DIR/opensim-build"
 cd "$WORKSPACE_DIR/opensim-build"
 
-cmake "$OPENSIM_ROOT/opensim-core" \
+cmake "$OPENSIM_ROOT/src/opensim-core" \
     -G"$GENERATOR" \
     -DCMAKE_INSTALL_PREFIX="$WORKSPACE_DIR/opensim-install" \
     -DCMAKE_BUILD_TYPE=$DEBUG_TYPE \
