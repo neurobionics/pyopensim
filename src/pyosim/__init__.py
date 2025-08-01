@@ -97,7 +97,7 @@ except ImportError:
 if common:
     # Core modeling classes
     try:
-        from .common import Model, Component, Property
+        from .common import Component, Property
         from .common import Vec3, Rotation, Transform
         from .common import Storage, Array
     except (ImportError, AttributeError):
@@ -106,7 +106,7 @@ if common:
 if simulation:
     # Simulation classes
     try:
-        from .simulation import Manager, State
+        from .simulation import Model, Manager, State
         from .simulation import InverseKinematicsSolver, InverseDynamicsSolver
     except (ImportError, AttributeError):
         pass
