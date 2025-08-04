@@ -120,7 +120,13 @@ if [ ${#MISSING_PACKAGES[@]} -eq 0 ]; then
 else
     echo "Missing packages: ${MISSING_PACKAGES[*]}"
     echo "Installing system dependencies..."
-    sudo apt-get update && sudo apt-get install -y "${MISSING_PACKAGES[@]}"
+    # Check if we're in a container environment (like manylinux) where sudo might not be available
+    if command -v sudo >/dev/null 2>&1; then
+        sudo apt-get update && sudo apt-get install -y "${MISSING_PACKAGES[@]}"
+    else
+        # Try without sudo (container environments often run as root)
+        apt-get update && apt-get install -y "${MISSING_PACKAGES[@]}"
+    fi
 fi
 
 # Exit early if only installing dependencies
@@ -133,7 +139,15 @@ fi
 echo "Installing SWIG 4.1.1..."
 mkdir -p "$WORKSPACE_DIR/swig-source" && cd "$WORKSPACE_DIR/swig-source"
 if [ ! -f "v4.1.1.tar.gz" ]; then
-    wget -q --show-progress https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
+    # Try wget first, fallback to curl if not available
+    if command -v wget >/dev/null 2>&1; then
+        wget -q --show-progress https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
+    elif command -v curl >/dev/null 2>&1; then
+        curl -L -o v4.1.1.tar.gz https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
+    else
+        echo "Error: Neither wget nor curl is available for downloading SWIG"
+        exit 1
+    fi
 fi
 if [ ! -d "swig-4.1.1" ]; then
     tar xzf v4.1.1.tar.gz
@@ -149,7 +163,7 @@ make -j$NUM_JOBS && make install
 echo "SWIG installation complete."
 
 # Add SWIG to PATH for the rest of the script
-export PATH="$WORKSPACE_DIR/swig-install/bin:$PATH"
+export PATH="$HOME/swig/bin:$PATH"
 
 # Build OpenSim dependencies
 echo "Building OpenSim dependencies..."
