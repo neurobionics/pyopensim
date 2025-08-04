@@ -1,0 +1,105 @@
+name: Wheels
+# Build distribution wheels with OpenSim dependencies
+
+on:
+  workflow_dispatch:
+  # pull_request:
+  # push:
+  #   branches:
+  #     - master
+  #     - main
+  # release:
+  #   types:
+  #     - published
+
+env:
+  FORCE_COLOR: 3
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_sdist:
+    name: Build SDist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Build SDist
+        run: pipx run build --sdist
+
+      - name: Check metadata
+        run: pipx run twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-sdist
+          path: dist/*.tar.gz
+
+
+  build_wheels:
+    name: Wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup system dependencies  
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y cmake git
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            brew install cmake git
+          fi
+        shell: bash
+
+      - uses: pypa/cibuildwheel@v3.1.3
+        env:
+          CIBW_ARCHS_MACOS: universal2
+          CIBW_ARCHS_WINDOWS: auto ARM64
+          CIBW_BEFORE_BUILD_MACOS: chmod +x ./scripts/opensim/setup_opensim_macos.sh && ./scripts/opensim/setup_opensim_macos.sh
+          CIBW_BEFORE_BUILD_LINUX: chmod +x ./scripts/opensim/setup_opensim_linux.sh && ./scripts/opensim/setup_opensim_linux.sh
+          CIBW_BEFORE_BUILD_WINDOWS: powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
+
+      - name: Verify clean directory
+        run: git diff --exit-code
+        shell: bash
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+
+  upload_all:
+    name: Upload if release
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    environment: pypi
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

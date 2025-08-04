@@ -103,7 +103,20 @@ echo "Installing system dependencies..."
 if ! command -v brew &> /dev/null
 then
     echo "Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" < /dev/null
+    # Detect architecture and use appropriate installation method
+    if [[ $(uname -m) == "arm64" ]]; then
+        echo "Detected Apple Silicon (ARM64) - installing Homebrew for ARM64"
+        arch -arm64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" < /dev/null
+        # Add Homebrew to PATH for ARM64
+        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    else
+        echo "Detected Intel (x86_64) - installing Homebrew for x86_64"
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" < /dev/null
+        # Add Homebrew to PATH for x86_64
+        echo 'eval "$(/usr/local/bin/brew shellenv)"' >> ~/.zprofile
+        eval "$(/usr/local/bin/brew shellenv)"
+    fi
 fi
 
 # Check and install dependencies from package manager
@@ -147,20 +160,38 @@ if [ ${#MISSING_PACKAGES[@]} -eq 0 ]; then
 else
     echo "Missing packages: ${MISSING_PACKAGES[*]}"
     echo "Installing build dependencies..."
-    brew install "${MISSING_PACKAGES[@]}"
+    # Use architecture-specific brew commands
+    if [[ $(uname -m) == "arm64" ]]; then
+        arch -arm64 brew install "${MISSING_PACKAGES[@]}"
+    else
+        brew install "${MISSING_PACKAGES[@]}"
+    fi
 fi
 
-# Always reinstall gcc to ensure proper version
-echo "Ensuring correct GCC version..."
-brew reinstall gcc
+# # Always reinstall gcc to ensure proper version
+# echo "Ensuring correct GCC version..."
+# brew reinstall gcc
 
 # Check and install Python packages
 echo "Checking Python dependencies..."
 PYTHON_PACKAGES=("cython" "numpy")
 MISSING_PYTHON_PACKAGES=()
 
+# Detect the correct Python executable to use
+# Check if we're in a virtual environment or if a specific Python path is provided
+if [[ -n "${VIRTUAL_ENV}" && -x "${VIRTUAL_ENV}/bin/python3" ]]; then
+    PYTHON_EXEC="${VIRTUAL_ENV}/bin/python3"
+    echo "Using virtual environment Python: $PYTHON_EXEC"
+elif [[ -x "/Users/holycow/Projects/pyosim/.venv/bin/python3" ]]; then
+    PYTHON_EXEC="/Users/holycow/Projects/pyosim/.venv/bin/python3"
+    echo "Using project virtual environment Python: $PYTHON_EXEC"
+else
+    PYTHON_EXEC="python3"
+    echo "Using system Python: $PYTHON_EXEC"
+fi
+
 for package in "${PYTHON_PACKAGES[@]}"; do
-    if ! python3 -c "import $package" &>/dev/null; then
+    if ! "$PYTHON_EXEC" -c "import $package" &>/dev/null; then
         MISSING_PYTHON_PACKAGES+=("$package")
     fi
 done
@@ -169,7 +200,12 @@ if [ ${#MISSING_PYTHON_PACKAGES[@]} -eq 0 ]; then
     echo "All required Python packages are already installed."
 else
     echo "Missing Python packages: ${MISSING_PYTHON_PACKAGES[*]}"
-    pip3 install "${MISSING_PYTHON_PACKAGES[@]}"
+    # Try using the detected Python executable with -m pip
+    echo "Attempting to install packages with: $PYTHON_EXEC -m pip"
+    if ! "$PYTHON_EXEC" -m pip install "${MISSING_PYTHON_PACKAGES[@]}"; then
+        echo "WARNING: Failed to install Python packages via pip. Continuing with build..."
+        echo "Note: Make sure the required packages (${MISSING_PYTHON_PACKAGES[*]}) are available in your Python environment."
+    fi
 fi
 
 echo "Checking Java 8 installation..."
@@ -180,8 +216,12 @@ if /usr/libexec/java_home -v 1.8 &>/dev/null; then
     echo "JAVA_HOME: $JAVA_HOME"
 else
     echo "Installing Java 8..."
-    # Install Java 8 from temurin repositories
-    brew install --cask temurin8
+    # Install Java 8 from Eclipse Temurin (direct cask)
+    if [[ $(uname -m) == "arm64" ]]; then
+        arch -arm64 brew install --cask temurin@8
+    else
+        brew install --cask temurin@8
+    fi
     export JAVA_HOME=$(/usr/libexec/java_home -v 1.8)
     echo "JAVA_HOME: $JAVA_HOME"
 fi
@@ -214,19 +254,37 @@ fi
 
 # Build OpenSim dependencies
 echo "Building OpenSim dependencies..."
+# Clean any existing cache to avoid path conflicts during pip builds
+rm -rf "$WORKSPACE_DIR/opensim-dependencies-build"
 mkdir -p "$WORKSPACE_DIR/opensim-dependencies-build"
 cd "$WORKSPACE_DIR/opensim-dependencies-build"
+
+# Detect architecture and set appropriate flags
+ARCH=$(uname -m)
+if [[ "$ARCH" == "arm64" ]]; then
+    CMAKE_ARCH_FLAGS="-DCMAKE_OSX_ARCHITECTURES=arm64"
+    echo "Building for Apple Silicon (arm64)"
+else
+    CMAKE_ARCH_FLAGS="-DCMAKE_OSX_ARCHITECTURES=x86_64"
+    echo "Building for Intel Mac (x86_64)"
+fi
 
 cmake "$OPENSIM_ROOT/src/opensim-core/dependencies" \
     -DCMAKE_INSTALL_PREFIX="$WORKSPACE_DIR/opensim-dependencies-install" \
     -DCMAKE_BUILD_TYPE=$DEBUG_TYPE \
+    -DCMAKE_BUILD_PARALLEL_LEVEL=$NUM_JOBS \
+    $CMAKE_ARCH_FLAGS \
     -DSUPERBUILD_ezc3d=ON \
-    -DOPENSIM_WITH_CASADI=$MOCO
+    -DOPENSIM_WITH_CASADI=OFF \
+    -DOPENSIM_WITH_TROPTER=OFF \
+    -DOPENSIM_WITH_MOCO=OFF
 
 cmake --build . --config $DEBUG_TYPE -j$NUM_JOBS
 
 # Build OpenSim core
 echo "Building OpenSim core..."
+# Clean any existing cache to avoid path conflicts during pip builds
+rm -rf "$WORKSPACE_DIR/opensim-build"
 mkdir -p "$WORKSPACE_DIR/opensim-build"
 cd "$WORKSPACE_DIR/opensim-build"
 
@@ -234,12 +292,18 @@ cmake "$OPENSIM_ROOT/src/opensim-core" \
     -G"$GENERATOR" \
     -DCMAKE_INSTALL_PREFIX="$WORKSPACE_DIR/opensim-install" \
     -DCMAKE_BUILD_TYPE=$DEBUG_TYPE \
+    -DCMAKE_BUILD_PARALLEL_LEVEL=$NUM_JOBS \
+    $CMAKE_ARCH_FLAGS \
+    -DCMAKE_CXX_FLAGS="-Wno-array-bounds" \
     -DOPENSIM_DEPENDENCIES_DIR="$WORKSPACE_DIR/opensim-dependencies-install" \
     -DBUILD_JAVA_WRAPPING=OFF \
     -DBUILD_PYTHON_WRAPPING=OFF \
     -DBUILD_TESTING=OFF \
+    -DBUILD_API_EXAMPLES=OFF \
     -DOPENSIM_C3D_PARSER=ezc3d \
-    -DOPENSIM_WITH_CASADI=$MOCO \
+    -DOPENSIM_WITH_CASADI=OFF \
+    -DOPENSIM_WITH_TROPTER=OFF \
+    -DOPENSIM_WITH_MOCO=OFF \
     -DOPENSIM_INSTALL_UNIX_FHS=OFF \
     -DSWIG_DIR="$WORKSPACE_DIR/swig-install/share/swig" \
     -DSWIG_EXECUTABLE="$WORKSPACE_DIR/swig-install/bin/swig" \

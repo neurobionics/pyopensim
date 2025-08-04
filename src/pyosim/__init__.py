@@ -28,10 +28,12 @@ else:
             os.environ['LD_LIBRARY_PATH'] = _lib_path
         
         # Preload critical libraries in correct order
+        # Use platform-appropriate library extension
+        lib_ext = '.dylib' if sys.platform == 'darwin' else '.so'
         try:
-            ctypes.CDLL(os.path.join(_lib_path, 'libSimTKcommon.so'), mode=ctypes.RTLD_GLOBAL)
-            ctypes.CDLL(os.path.join(_lib_path, 'libSimTKmath.so'), mode=ctypes.RTLD_GLOBAL)
-            ctypes.CDLL(os.path.join(_lib_path, 'libSimTKsimbody.so'), mode=ctypes.RTLD_GLOBAL)
+            ctypes.CDLL(os.path.join(_lib_path, f'libSimTKcommon{lib_ext}'), mode=ctypes.RTLD_GLOBAL)
+            ctypes.CDLL(os.path.join(_lib_path, f'libSimTKmath{lib_ext}'), mode=ctypes.RTLD_GLOBAL)
+            ctypes.CDLL(os.path.join(_lib_path, f'libSimTKsimbody{lib_ext}'), mode=ctypes.RTLD_GLOBAL)
         except OSError as e:
             print(f"Warning: Could not preload SimTK libraries: {e}")
 

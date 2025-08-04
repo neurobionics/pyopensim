@@ -5,8 +5,33 @@ project(pyosim VERSION "0.0.1")
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Explicitly set architecture for Apple Silicon
+if(APPLE)
+    execute_process(COMMAND uname -m OUTPUT_VARIABLE MACHINE_ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message(STATUS "Detected architecture: ${MACHINE_ARCH}")
+    if(MACHINE_ARCH STREQUAL "arm64")
+        set(CMAKE_OSX_ARCHITECTURES "arm64")
+        message(STATUS "Building for Apple Silicon (arm64)")
+    else()
+        set(CMAKE_OSX_ARCHITECTURES "x86_64")
+        message(STATUS "Building for Intel Mac (x86_64)")
+    endif()
+endif()
+
 # Find required packages
-set(SWIG_EXECUTABLE "$ENV{HOME}/swig/bin/swig")
+# Set SWIG paths - check workspace first, then fallback to system paths
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/build/opensim-workspace/swig-install/bin/swig")
+    set(SWIG_EXECUTABLE "${CMAKE_CURRENT_SOURCE_DIR}/build/opensim-workspace/swig-install/bin/swig")
+    set(SWIG_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/opensim-workspace/swig-install/share/swig")
+elseif(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/../build/opensim-workspace/swig-install/bin/swig")
+    set(SWIG_EXECUTABLE "${CMAKE_CURRENT_BINARY_DIR}/../build/opensim-workspace/swig-install/bin/swig")
+    set(SWIG_DIR "${CMAKE_CURRENT_BINARY_DIR}/../build/opensim-workspace/swig-install/share/swig")
+elseif(EXISTS "$ENV{HOME}/swig/bin/swig")
+    set(SWIG_EXECUTABLE "$ENV{HOME}/swig/bin/swig")
+else()
+    # Let find_package try to locate SWIG
+    message(STATUS "SWIG not found in workspace, will search system paths")
+endif()
 find_package(SWIG 4.1.1 REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 
@@ -71,8 +96,9 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
             set(LIB_EXT ".dylib")
             set(DLL_EXT ".dylib")
             set(SETUP_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/opensim/setup_opensim_macos.sh")
-            set(TEST_LIB "${OPENSIM_BUILD_DIR}/libosimCommon${LIB_EXT}")
+            set(TEST_LIB "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimCommon${LIB_EXT}")
         else()
+            # Linux and other Unix-like systems
             set(LIB_EXT ".so")
             set(DLL_EXT ".so")
             set(SETUP_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/opensim/setup_opensim_linux.sh")
@@ -82,12 +108,14 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
         # Check if OpenSim libraries exist - robust check for multiple critical files
         set(OPENSIM_REQUIRED_LIBS)
         if(WIN32)
+            # Windows: OpenSim libraries in lib/, Simbody in sdk/Simbody/lib/
             list(APPEND OPENSIM_REQUIRED_LIBS
                 "${OPENSIM_INSTALL_DIR}/lib/osimCommon${LIB_EXT}"
                 "${OPENSIM_INSTALL_DIR}/lib/osimSimulation${LIB_EXT}"
                 "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/SimTKcommon${LIB_EXT}"
             )
         else()
+            # Linux and macOS use same library structure after OpenSim install
             list(APPEND OPENSIM_REQUIRED_LIBS
                 "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimCommon${LIB_EXT}"
                 "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimSimulation${LIB_EXT}"
@@ -295,6 +323,7 @@ macro(OpenSimAddPythonModule)
     if(PYOSIM_BUILD_WITH_OPENSIM)
         # Platform-specific library paths
         if(WIN32)
+            # Windows: OpenSim libraries in lib/, Simbody libraries in sdk/Simbody/lib/
             set(OSIM_LIBS
                 "${OPENSIM_INSTALL_DIR}/lib/osimCommon${LIB_EXT}"
                 "${OPENSIM_INSTALL_DIR}/lib/osimSimulation${LIB_EXT}"
@@ -321,6 +350,7 @@ macro(OpenSimAddPythonModule)
         # Add optional libraries if they exist
         set(OPTIONAL_LIBS)
         if(WIN32)
+            # Windows: Optional libraries in lib/
             list(APPEND OPTIONAL_LIBS 
                 "${OPENSIM_INSTALL_DIR}/lib/osimLepton${LIB_EXT}"
                 "${OPENSIM_INSTALL_DIR}/lib/osimdocopt${LIB_EXT}"
@@ -378,11 +408,19 @@ macro(OpenSimAddPythonModule)
     
     # Configure RPATH for self-contained wheel
     if(NOT WIN32)
-        set_target_properties(${_libname} PROPERTIES
-            BUILD_RPATH_USE_ORIGIN TRUE
-            INSTALL_RPATH "$ORIGIN/lib"
-            BUILD_RPATH "$ORIGIN/lib"
-        )
+        if(APPLE)
+            set_target_properties(${_libname} PROPERTIES
+                BUILD_RPATH_USE_ORIGIN TRUE
+                INSTALL_RPATH "@loader_path/lib"
+                BUILD_RPATH "@loader_path/lib"
+            )
+        else()
+            set_target_properties(${_libname} PROPERTIES
+                BUILD_RPATH_USE_ORIGIN TRUE
+                INSTALL_RPATH "$ORIGIN/lib"
+                BUILD_RPATH "$ORIGIN/lib"
+            )
+        endif()
     endif()
 
     # Copy files into the build tree python package.
@@ -457,18 +495,38 @@ set_target_properties(PythonBindings PROPERTIES
     FOLDER "Bindings")
 
 # Install OpenSim libraries into the wheel
-if(PYOSIM_BUILD_WITH_OPENSIM AND NOT WIN32)
+if(PYOSIM_BUILD_WITH_OPENSIM)
     # Create lib directory in the install location
     install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
     
-    # Install OpenSim libraries
-    set(INSTALL_LIBS
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimCommon${LIB_EXT}"
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimSimulation${LIB_EXT}"
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimActuators${LIB_EXT}"
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimAnalyses${LIB_EXT}"
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimTools${LIB_EXT}"
-    )
+    # Install OpenSim libraries - platform specific paths
+    if(WIN32)
+        # Windows: OpenSim libraries in lib/ directory, need both .lib and .dll
+        set(INSTALL_LIBS
+            "${OPENSIM_INSTALL_DIR}/lib/osimCommon${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/lib/osimSimulation${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/lib/osimActuators${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/lib/osimAnalyses${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/lib/osimTools${LIB_EXT}"
+        )
+        # Also install runtime DLLs for Windows
+        set(INSTALL_DLLS
+            "${OPENSIM_INSTALL_DIR}/bin/osimCommon.dll"
+            "${OPENSIM_INSTALL_DIR}/bin/osimSimulation.dll"
+            "${OPENSIM_INSTALL_DIR}/bin/osimActuators.dll"
+            "${OPENSIM_INSTALL_DIR}/bin/osimAnalyses.dll"
+            "${OPENSIM_INSTALL_DIR}/bin/osimTools.dll"
+        )
+    else()
+        # Linux/macOS: OpenSim libraries in sdk/lib/ directory
+        set(INSTALL_LIBS
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimCommon${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimSimulation${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimActuators${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimAnalyses${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimTools${LIB_EXT}"
+        )
+    endif()
     
     foreach(LIB ${INSTALL_LIBS})
         if(EXISTS "${LIB}")
@@ -476,27 +534,91 @@ if(PYOSIM_BUILD_WITH_OPENSIM AND NOT WIN32)
         endif()
     endforeach()
     
-    # Install Simbody libraries (including versioned libraries)
-    file(GLOB SIMBODY_ALL_LIBS 
-        "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/libSimTK*.so*"
-    )
-    if(SIMBODY_ALL_LIBS)
-        install(FILES ${SIMBODY_ALL_LIBS}
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+    # Install Windows DLLs if they exist
+    if(WIN32 AND INSTALL_DLLS)
+        foreach(DLL ${INSTALL_DLLS})
+            if(EXISTS "${DLL}")
+                install(FILES "${DLL}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+            endif()
+        endforeach()
     endif()
     
-    # Install optional libraries
-    set(OPTIONAL_INSTALL_LIBS
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimLepton${LIB_EXT}"
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimdocopt${LIB_EXT}"
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libezc3d${LIB_EXT}"
-    )
+    # Install Simbody libraries (including versioned libraries)
+    if(WIN32)
+        # Windows: Install both .lib and .dll files for Simbody
+        set(SIMBODY_LIBS
+            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/SimTKcommon${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/SimTKmath${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/SimTKsimbody${LIB_EXT}"
+        )
+        set(SIMBODY_DLLS
+            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/bin/SimTKcommon.dll"
+            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/bin/SimTKmath.dll"
+            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/bin/SimTKsimbody.dll"
+        )
+        foreach(LIB ${SIMBODY_LIBS})
+            if(EXISTS "${LIB}")
+                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+            endif()
+        endforeach()
+        foreach(DLL ${SIMBODY_DLLS})
+            if(EXISTS "${DLL}")
+                install(FILES "${DLL}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+            endif()
+        endforeach()
+    elseif(APPLE)
+        file(GLOB SIMBODY_ALL_LIBS 
+            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/libSimTK*.dylib*"
+        )
+        if(SIMBODY_ALL_LIBS)
+            install(FILES ${SIMBODY_ALL_LIBS}
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+        endif()
+    else()
+        # Linux
+        file(GLOB SIMBODY_ALL_LIBS 
+            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/libSimTK*.so*"
+        )
+        if(SIMBODY_ALL_LIBS)
+            install(FILES ${SIMBODY_ALL_LIBS}
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+        endif()
+    endif()
+    
+    # Install optional libraries - platform specific paths
+    if(WIN32)
+        set(OPTIONAL_INSTALL_LIBS
+            "${OPENSIM_INSTALL_DIR}/lib/osimLepton${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/lib/osimdocopt${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/lib/ezc3d${LIB_EXT}"
+        )
+        set(OPTIONAL_INSTALL_DLLS
+            "${OPENSIM_INSTALL_DIR}/bin/osimLepton.dll"
+            "${OPENSIM_INSTALL_DIR}/bin/osimdocopt.dll"
+            "${OPENSIM_INSTALL_DIR}/bin/ezc3d.dll"
+        )
+    else()
+        set(OPTIONAL_INSTALL_LIBS
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimLepton${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimdocopt${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/libezc3d${LIB_EXT}"
+        )
+    endif()
     
     foreach(LIB ${OPTIONAL_INSTALL_LIBS})
         if(EXISTS "${LIB}")
             install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
         endif()
     endforeach()
+    
+    # Install optional Windows DLLs if they exist
+    if(WIN32 AND OPTIONAL_INSTALL_DLLS)
+        foreach(DLL ${OPTIONAL_INSTALL_DLLS})
+            if(EXISTS "${DLL}")
+                install(FILES "${DLL}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+            endif()
+        endforeach()
+    endif()
 endif()
 
 # Install stub files for IDE support

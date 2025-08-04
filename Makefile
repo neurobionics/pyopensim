@@ -1,4 +1,4 @@
-.PHONY: help test build setup setup-opensim check-deps
+.PHONY: help test build clean clean-all setup setup-opensim check-deps
 
 # Platform detection for cross-platform development
 UNAME_S := $(shell uname -s 2>/dev/null || echo "Windows")
@@ -58,7 +58,21 @@ setup: check-deps setup-opensim ## Complete setup: dependencies + OpenSim + Pyth
 	@echo "Setup complete! Use 'make build' to build Python bindings."
 
 build: ## Build the Python bindings
-	pip install -v .
+	pip install -v .[test]
+
+clean: ## Clean build artifacts (preserves OpenSim cache)
+	rm -rf build/cp*
+	rm -rf dist/
+	rm -rf *.egg-info/
+	find . -name "*.pyc" -delete
+	find . -name "__pycache__" -delete -type d
+
+clean-all: ## Clean all artifacts including OpenSim cache
+	rm -rf build/
+	rm -rf dist/
+	rm -rf *.egg-info/
+	find . -name "*.pyc" -delete
+	find . -name "__pycache__" -delete -type d
 
 test: ## Run tests
 	python -m pytest tests
