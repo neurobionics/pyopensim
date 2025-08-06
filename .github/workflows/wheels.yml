@@ -3,6 +3,22 @@ name: Wheels
 
 on:
   workflow_dispatch:
+    inputs:
+      build_ubuntu:
+        description: 'Build Ubuntu wheels'
+        required: false
+        default: true
+        type: boolean
+      build_macos:
+        description: 'Build macOS wheels'
+        required: false
+        default: true
+        type: boolean
+      build_windows:
+        description: 'Build Windows wheels'
+        required: false
+        default: true
+        type: boolean
   # pull_request:
   # push:
   #   branches:
@@ -46,7 +62,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            build: ${{ github.event_name != 'workflow_dispatch' || inputs.build_ubuntu }}
+          - os: macos-latest  
+            build: ${{ github.event_name != 'workflow_dispatch' || inputs.build_macos }}
+          - os: windows-latest
+            build: ${{ github.event_name != 'workflow_dispatch' || inputs.build_windows }}
+        exclude:
+          - build: false
 
     steps:
       - uses: actions/checkout@v4
