@@ -96,6 +96,32 @@ echo
 # Create workspace
 mkdir -p "$WORKSPACE_DIR"
 
+# Cache validation - check if OpenSim is already built and valid
+OPENSIM_COMMIT_HASH=""
+if [ -d "$OPENSIM_ROOT/src/opensim-core/.git" ]; then
+    OPENSIM_COMMIT_HASH=$(git -C "$OPENSIM_ROOT/src/opensim-core" rev-parse HEAD 2>/dev/null || echo "unknown")
+fi
+CACHE_MARKER="$WORKSPACE_DIR/.opensim_build_complete_${OPENSIM_COMMIT_HASH}"
+
+echo "Checking for existing OpenSim build cache..."
+if [ "$OPENSIM_CACHE_HIT" = "true" ] && [ -f "$CACHE_MARKER" ] && [ -f "$WORKSPACE_DIR/opensim-install/lib/libosimCommon.dylib" ]; then
+    echo "✓ OpenSim build cache is valid (commit: ${OPENSIM_COMMIT_HASH:0:8}), skipping rebuild"
+    echo "Cache marker found: $CACHE_MARKER"
+    
+    # Ensure SWIG is still in PATH for subsequent builds
+    if [ -d "$HOME/swig/bin" ]; then
+        export PATH="$HOME/swig/bin:$PATH"
+        echo "SWIG path restored from cache"
+    fi
+    
+    exit 0
+fi
+
+echo "Cache miss or invalid cache, proceeding with OpenSim build..."
+if [ -n "$OPENSIM_COMMIT_HASH" ] && [ "$OPENSIM_COMMIT_HASH" != "unknown" ]; then
+    echo "Building for OpenSim commit: ${OPENSIM_COMMIT_HASH:0:8}"
+fi
+
 # Install system dependencies
 echo "Installing system dependencies..."
 
@@ -323,5 +349,11 @@ cmake "$OPENSIM_ROOT/src/opensim-core" \
 
 cmake --build . --config $DEBUG_TYPE -j$NUM_JOBS
 cmake --install .
+
+# Create cache completion marker
+if [ -n "$OPENSIM_COMMIT_HASH" ] && [ "$OPENSIM_COMMIT_HASH" != "unknown" ]; then
+    touch "$CACHE_MARKER"
+    echo "✓ Cache marker created: $CACHE_MARKER"
+fi
 
 echo "OpenSim setup complete. Libraries installed in: $WORKSPACE_DIR/opensim-install"

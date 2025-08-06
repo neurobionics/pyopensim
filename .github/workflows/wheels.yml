@@ -98,11 +98,30 @@ jobs:
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             sudo apt-get update
-            sudo apt-get install -y cmake git libpcre2-dev libpcre3-dev
+            sudo apt-get install -y cmake git libpcre2-dev libpcre3-dev ccache
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            brew install cmake git
+            brew install cmake git ccache
           fi
         shell: bash
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ github.job }}-${{ matrix.os }}-${{ github.ref }}
+          max-size: "2G"
+          verbose: 2
+
+      - name: Cache OpenSim Dependencies and Build
+        uses: actions/cache@v4
+        id: cache-opensim
+        with:
+          path: |
+            build/opensim-workspace
+            ~/.ccache
+          key: opensim-${{ runner.os }}-${{ hashFiles('src/opensim-core/.git/modules/src/opensim-core/refs/heads/main', 'src/opensim-core/.git/refs/heads/main') }}-${{ hashFiles('scripts/opensim/setup_opensim_*.sh', 'scripts/opensim/setup_opensim_*.ps1') }}-v1
+          restore-keys: |
+            opensim-${{ runner.os }}-${{ hashFiles('src/opensim-core/.git/modules/src/opensim-core/refs/heads/main', 'src/opensim-core/.git/refs/heads/main') }}-
+            opensim-${{ runner.os }}-
 
       - uses: pypa/cibuildwheel@v3.1.3
         env:
@@ -111,7 +130,18 @@ jobs:
           CIBW_ENVIRONMENT_MACOS: >
             MACOSX_DEPLOYMENT_TARGET=10.15 
             CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+            CMAKE_C_COMPILER_LAUNCHER=ccache
+            CMAKE_CXX_COMPILER_LAUNCHER=ccache
+            CCACHE_DIR=/Users/runner/.ccache
             REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
+            OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit }}
+          CIBW_ENVIRONMENT_LINUX: >
+            CMAKE_C_COMPILER_LAUNCHER=ccache
+            CMAKE_CXX_COMPILER_LAUNCHER=ccache
+            CCACHE_DIR=/home/runner/.ccache
+            OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit }}
+          CIBW_ENVIRONMENT_WINDOWS: >
+            OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit }}
           CIBW_BEFORE_BUILD_MACOS: chmod +x ./scripts/opensim/setup_opensim_macos.sh && ./scripts/opensim/setup_opensim_macos.sh
           CIBW_BEFORE_BUILD_LINUX: chmod +x ./scripts/opensim/setup_opensim_linux.sh && ./scripts/opensim/setup_opensim_linux.sh
           CIBW_BEFORE_BUILD_WINDOWS: powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1

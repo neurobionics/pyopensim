@@ -62,6 +62,30 @@ if (-not (Test-Path -Path $WORKSPACE_DIR)) {
     New-Item -ItemType Directory -Path $WORKSPACE_DIR -Force | Out-Null
 }
 
+# Cache validation - check if OpenSim is already built and valid
+$OPENSIM_COMMIT_HASH = ""
+if (Test-Path "$OPENSIM_ROOT\src\opensim-core\.git") {
+    try {
+        $OPENSIM_COMMIT_HASH = & git -C "$OPENSIM_ROOT\src\opensim-core" rev-parse HEAD 2>$null
+        if (-not $OPENSIM_COMMIT_HASH) { $OPENSIM_COMMIT_HASH = "unknown" }
+    } catch {
+        $OPENSIM_COMMIT_HASH = "unknown"
+    }
+}
+$CACHE_MARKER = "$WORKSPACE_DIR\.opensim_build_complete_$OPENSIM_COMMIT_HASH"
+
+Write-Output "Checking for existing OpenSim build cache..."
+if ($env:OPENSIM_CACHE_HIT -eq "true" -and (Test-Path $CACHE_MARKER) -and (Test-Path "$WORKSPACE_DIR\opensim-install\lib\osimCommon.dll")) {
+    Write-Output "✓ OpenSim build cache is valid (commit: $($OPENSIM_COMMIT_HASH.Substring(0,8))), skipping rebuild"
+    Write-Output "Cache marker found: $CACHE_MARKER"
+    exit 0
+}
+
+Write-Output "Cache miss or invalid cache, proceeding with OpenSim build..."
+if ($OPENSIM_COMMIT_HASH -and $OPENSIM_COMMIT_HASH -ne "unknown") {
+    Write-Output "Building for OpenSim commit: $($OPENSIM_COMMIT_HASH.Substring(0,8))"
+}
+
 Write-Output "Installing system dependencies..."
 
 # Install chocolatey
@@ -135,5 +159,11 @@ cmake "$OPENSIM_ROOT\opensim-core" `
 
 cmake --build . --config $DEBUG_TYPE -- /maxcpucount:$NUM_JOBS /p:CL_MPCount=1
 cmake --install .
+
+# Create cache completion marker
+if ($OPENSIM_COMMIT_HASH -and $OPENSIM_COMMIT_HASH -ne "unknown") {
+    New-Item -ItemType File -Path $CACHE_MARKER -Force | Out-Null
+    Write-Output "✓ Cache marker created: $CACHE_MARKER"
+}
 
 Write-Output "OpenSim setup complete. Libraries installed in: $OPENSIM_INSTALL_DIR"
