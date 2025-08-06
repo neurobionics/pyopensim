@@ -146,8 +146,12 @@ jobs:
           CIBW_BEFORE_BUILD_LINUX: chmod +x ./scripts/opensim/setup_opensim_linux.sh && ./scripts/opensim/setup_opensim_linux.sh
           CIBW_BEFORE_BUILD_WINDOWS: powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            echo "=== Architecture Check ===" &&
+            file ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTKmath.3.8.dylib &&
+            file ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTKsimbody.3.8.dylib &&
+            echo "=== Delocating Wheel ===" &&
             DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH 
-            delocate-wheel --require-archs {arch} -w {dest_dir} -v {wheel}
+            delocate-wheel -w {dest_dir} -v {wheel}
 
       - name: Verify clean directory
         run: git diff --exit-code
