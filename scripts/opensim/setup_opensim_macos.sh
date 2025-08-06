@@ -260,13 +260,22 @@ mkdir -p "$WORKSPACE_DIR/opensim-dependencies-build"
 cd "$WORKSPACE_DIR/opensim-dependencies-build"
 
 # Detect architecture and set appropriate flags
-ARCH=$(uname -m)
-if [[ "$ARCH" == "arm64" ]]; then
-    CMAKE_ARCH_FLAGS="-DCMAKE_OSX_ARCHITECTURES=arm64"
-    echo "Building for Apple Silicon (arm64)"
+# Check if we're building universal2 wheels (detected by CMAKE_OSX_ARCHITECTURES environment variable)
+if [[ -n "${CMAKE_OSX_ARCHITECTURES}" ]]; then
+    CMAKE_ARCH_FLAGS="-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}"
+    echo "Building for architectures specified by CMAKE_OSX_ARCHITECTURES: ${CMAKE_OSX_ARCHITECTURES}"
+elif [[ -n "${ARCHFLAGS}" && "${ARCHFLAGS}" == *"universal2"* ]]; then
+    CMAKE_ARCH_FLAGS="-DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"
+    echo "Building universal2 (x86_64;arm64) from ARCHFLAGS"
 else
-    CMAKE_ARCH_FLAGS="-DCMAKE_OSX_ARCHITECTURES=x86_64"
-    echo "Building for Intel Mac (x86_64)"
+    ARCH=$(uname -m)
+    if [[ "$ARCH" == "arm64" ]]; then
+        CMAKE_ARCH_FLAGS="-DCMAKE_OSX_ARCHITECTURES=arm64"
+        echo "Building for Apple Silicon (arm64)"
+    else
+        CMAKE_ARCH_FLAGS="-DCMAKE_OSX_ARCHITECTURES=x86_64"
+        echo "Building for Intel Mac (x86_64)"
+    fi
 fi
 
 cmake "$OPENSIM_ROOT/src/opensim-core/dependencies" \

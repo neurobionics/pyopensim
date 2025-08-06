@@ -567,11 +567,23 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
             endif()
         endforeach()
     elseif(APPLE)
+        # Install both versioned and unversioned SimTK libraries for macOS
         file(GLOB SIMBODY_ALL_LIBS 
             "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/libSimTK*.dylib*"
         )
+        message(STATUS "Found SimTK libraries in OpenSim install: ${SIMBODY_ALL_LIBS}")
         if(SIMBODY_ALL_LIBS)
             install(FILES ${SIMBODY_ALL_LIBS}
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+        endif()
+        
+        # Also check dependencies directory for any additional SimTK libraries
+        file(GLOB SIMBODY_DEPS_LIBS 
+            "${OPENSIM_DEPENDENCIES_DIR}/simbody/lib/libSimTK*.dylib*"
+        )
+        message(STATUS "Found SimTK libraries in dependencies: ${SIMBODY_DEPS_LIBS}")
+        if(SIMBODY_DEPS_LIBS)
+            install(FILES ${SIMBODY_DEPS_LIBS}
                 DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
         endif()
     else()

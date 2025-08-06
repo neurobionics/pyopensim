@@ -67,7 +67,7 @@ jobs:
         env:
           CIBW_ARCHS_MACOS: universal2
           CIBW_ARCHS_WINDOWS: auto ARM64
-          CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=10.15
+          CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=10.15 CMAKE_OSX_ARCHITECTURES=x86_64;arm64
           CIBW_BEFORE_BUILD_MACOS: chmod +x ./scripts/opensim/setup_opensim_macos.sh && ./scripts/opensim/setup_opensim_macos.sh
           CIBW_BEFORE_BUILD_LINUX: chmod +x ./scripts/opensim/setup_opensim_linux.sh && ./scripts/opensim/setup_opensim_linux.sh
           CIBW_BEFORE_BUILD_WINDOWS: powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
