@@ -91,34 +91,122 @@ fi
 # Check system dependencies
 echo "Checking system dependencies..."
 
-# List of required packages
-REQUIRED_PACKAGES=(
-    "build-essential"
-    "cmake"
-    "autotools-dev"
-    "autoconf"
-    "pkg-config"
-    "automake"
-    "libopenblas-dev"
-    "liblapack-dev"
-    "freeglut3-dev"
-    "libxi-dev"
-    "libxmu-dev"
-    "doxygen"
-    "python3-dev"
-    "git"
-    "libssl-dev"
-    "libpcre3-dev"
-    "libpcre2-dev"
-    "libtool"
-    "gfortran"
-    "ninja-build"
-    "patchelf"
-    "openjdk-8-jdk"
-    "wget"
-    "bison"
-    "byacc"
-)
+# Detect package manager and set packages accordingly
+if command -v apk >/dev/null 2>&1; then
+    echo "Detected Alpine Linux (musllinux) with apk"
+    PACKAGE_MANAGER="apk"
+    REQUIRED_PACKAGES=(
+        "gcc" "g++" "make" "musl-dev"
+        "cmake"
+        "autoconf" "automake" "libtool"
+        "pkgconfig" "pkgconf-dev"
+        "openblas-dev"
+        "lapack-dev"
+        "mesa-dev" "freeglut-dev"
+        "libxi-dev"
+        "libxmu-dev"
+        "doxygen"
+        "python3-dev"
+        "git"
+        "openssl-dev"
+        "pcre-dev"
+        "pcre2-dev"
+        "gfortran"
+        "patchelf"
+        "openjdk8-jre-base"
+        "wget"
+        "bison"
+        "byacc"
+        "linux-headers"
+    )
+elif command -v dnf >/dev/null 2>&1; then
+    echo "Detected modern RHEL/AlmaLinux (manylinux_2_28+) with dnf"
+    PACKAGE_MANAGER="dnf"
+    REQUIRED_PACKAGES=(
+        "gcc" "gcc-c++" "make"
+        "cmake"
+        "autoconf" "automake" "libtool"
+        "pkgconfig"
+        "openblas-devel"
+        "lapack-devel" 
+        "freeglut-devel"
+        "libXi-devel"
+        "libXmu-devel"
+        "doxygen"
+        "python3-devel"
+        "git"
+        "openssl-devel"
+        "pcre-devel"
+        "pcre2-devel"
+        "gfortran"
+        "patchelf"
+        "java-1.8.0-openjdk-devel"
+        "wget"
+        "bison"
+        "byacc"
+    )
+elif command -v yum >/dev/null 2>&1; then
+    echo "Detected legacy RHEL/CentOS (manylinux2014) with yum"
+    PACKAGE_MANAGER="yum"
+    REQUIRED_PACKAGES=(
+        "gcc" "gcc-c++" "make"
+        "cmake3"
+        "autoconf" "automake" "libtool"
+        "pkgconfig"
+        "openblas-devel"
+        "lapack-devel" 
+        "freeglut-devel"
+        "libXi-devel"
+        "libXmu-devel"
+        "doxygen"
+        "python3-devel"
+        "git"
+        "openssl-devel"
+        "pcre-devel"
+        "pcre2-devel"
+        "gfortran"
+        "patchelf"
+        "java-1.8.0-openjdk-devel"
+        "wget"
+        "bison"
+        "byacc"
+    )
+elif command -v apt-get >/dev/null 2>&1; then
+    echo "Detected Debian/Ubuntu environment with apt"
+    PACKAGE_MANAGER="apt"
+    REQUIRED_PACKAGES=(
+        "build-essential"
+        "cmake"
+        "autotools-dev"
+        "autoconf"
+        "pkg-config"
+        "automake"
+        "libopenblas-dev"
+        "liblapack-dev"
+        "freeglut3-dev"
+        "libxi-dev"
+        "libxmu-dev"
+        "doxygen"
+        "python3-dev"
+        "git"
+        "libssl-dev"
+        "libpcre3-dev"
+        "libpcre2-dev"
+        "libtool"
+        "gfortran"
+        "ninja-build"
+        "patchelf"
+        "openjdk-8-jdk"
+        "wget"
+        "bison"
+        "byacc"
+    )
+else
+    echo "Warning: No supported package manager found (apk/dnf/yum/apt-get)"
+    echo "Manual package installation may be required"
+    PACKAGE_MANAGER="none"
+    REQUIRED_PACKAGES=()
+fi
 
 # Add wheel building tools if requested
 if [ "$WITH_WHEEL_TOOLS" = true ]; then
@@ -131,27 +219,61 @@ for pkg in "${EXTRA_PACKAGES[@]}"; do
     REQUIRED_PACKAGES+=("$pkg")
 done
 
-# Check which packages are missing
+# Check which packages are missing based on package manager
 MISSING_PACKAGES=()
-for package in "${REQUIRED_PACKAGES[@]}"; do
-    # Check if package is installed (handles architecture suffixes like :amd64)
-    if ! dpkg -l | grep -q "^ii  $package\(:\|[[:space:]]\)"; then
-        MISSING_PACKAGES+=("$package")
-    fi
-done 2>/dev/null
+
+if [ "$PACKAGE_MANAGER" = "none" ]; then
+    echo "No package manager available - skipping dependency check"
+elif [ "$PACKAGE_MANAGER" = "apk" ]; then
+    # Check if packages are installed using apk
+    for package in "${REQUIRED_PACKAGES[@]}"; do
+        if ! apk info -e "$package" >/dev/null 2>&1; then
+            MISSING_PACKAGES+=("$package")
+        fi
+    done
+elif [ "$PACKAGE_MANAGER" = "dnf" ] || [ "$PACKAGE_MANAGER" = "yum" ]; then
+    # Check if packages are installed using rpm (works for both yum and dnf)
+    for package in "${REQUIRED_PACKAGES[@]}"; do
+        if ! rpm -q "$package" >/dev/null 2>&1; then
+            MISSING_PACKAGES+=("$package")
+        fi
+    done
+elif [ "$PACKAGE_MANAGER" = "apt" ]; then
+    # Check if packages are installed using dpkg
+    for package in "${REQUIRED_PACKAGES[@]}"; do
+        if ! dpkg -l | grep -q "^ii  $package\(:\|[[:space:]]\)" 2>/dev/null; then
+            MISSING_PACKAGES+=("$package")
+        fi
+    done
+fi
 
 # Only install if there are missing packages
 if [ ${#MISSING_PACKAGES[@]} -eq 0 ]; then
     echo "All required system dependencies are already installed."
+elif [ "$PACKAGE_MANAGER" = "none" ]; then
+    echo "No package manager available - please install dependencies manually"
 else
     echo "Missing packages: ${MISSING_PACKAGES[*]}"
-    echo "Installing system dependencies..."
-    # Check if we're in a container environment (like manylinux) where sudo might not be available
-    if command -v sudo >/dev/null 2>&1; then
-        sudo apt-get update && sudo apt-get install -y "${MISSING_PACKAGES[@]}"
-    else
-        # Try without sudo (container environments often run as root)
-        apt-get update && apt-get install -y "${MISSING_PACKAGES[@]}"
+    echo "Installing system dependencies using $PACKAGE_MANAGER..."
+    
+    if [ "$PACKAGE_MANAGER" = "apk" ]; then
+        # Alpine Linux (musllinux) - usually running as root
+        apk add --no-cache "${MISSING_PACKAGES[@]}"
+    elif [ "$PACKAGE_MANAGER" = "dnf" ]; then
+        # Modern RHEL/AlmaLinux (manylinux_2_28+) - usually running as root
+        dnf install -y "${MISSING_PACKAGES[@]}"
+    elif [ "$PACKAGE_MANAGER" = "yum" ]; then
+        # Legacy RHEL/CentOS (manylinux2014) - usually running as root
+        yum install -y "${MISSING_PACKAGES[@]}"
+    elif [ "$PACKAGE_MANAGER" = "apt" ]; then
+        # Ubuntu/Debian environment (manylinux_2_31 armv7l or native Ubuntu)
+        if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+            sudo apt-get update && sudo apt-get install -y "${MISSING_PACKAGES[@]}"
+        elif [ "$EUID" -eq 0 ]; then
+            apt-get update && apt-get install -y "${MISSING_PACKAGES[@]}"
+        else
+            echo "Warning: Cannot install packages - no sudo access and not running as root"
+        fi
     fi
 fi
 
@@ -183,7 +305,7 @@ if [ ! -f "configure" ]; then
     sh autogen.sh
 fi
 if [ ! -f "Makefile" ]; then
-    ./configure --prefix="$HOME/swig" --disable-ccache
+        ./configure --prefix="$HOME/swig" --disable-ccache
 fi
 make -j$NUM_JOBS && make install
 echo "SWIG installation complete."
