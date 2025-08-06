@@ -118,9 +118,9 @@ jobs:
           path: |
             build/opensim-workspace
             ~/.ccache
-          key: opensim-${{ runner.os }}-${{ hashFiles('src/opensim-core/.git/modules/src/opensim-core/refs/heads/main', 'src/opensim-core/.git/refs/heads/main') }}-${{ hashFiles('scripts/opensim/setup_opensim_*.sh', 'scripts/opensim/setup_opensim_*.ps1') }}-v1
+          key: opensim-${{ runner.os }}-${{ github.sha }}-${{ hashFiles('scripts/opensim/setup_opensim_*.sh', 'scripts/opensim/setup_opensim_*.ps1') }}-v1
           restore-keys: |
-            opensim-${{ runner.os }}-${{ hashFiles('src/opensim-core/.git/modules/src/opensim-core/refs/heads/main', 'src/opensim-core/.git/refs/heads/main') }}-
+            opensim-${{ runner.os }}-${{ github.sha }}-
             opensim-${{ runner.os }}-
 
       - uses: pypa/cibuildwheel@v3.1.3
