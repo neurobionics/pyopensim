@@ -98,7 +98,7 @@ jobs:
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             sudo apt-get update
-            sudo apt-get install -y cmake git
+            sudo apt-get install -y cmake git libpcre2-dev libpcre3-dev
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             brew install cmake git
           fi
@@ -108,13 +108,16 @@ jobs:
         env:
           CIBW_ARCHS_MACOS: universal2
           CIBW_ARCHS_WINDOWS: auto ARM64
-          CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=10.15 CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+          CIBW_ENVIRONMENT_MACOS: >
+            MACOSX_DEPLOYMENT_TARGET=10.15 
+            CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+            REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
           CIBW_BEFORE_BUILD_MACOS: chmod +x ./scripts/opensim/setup_opensim_macos.sh && ./scripts/opensim/setup_opensim_macos.sh
           CIBW_BEFORE_BUILD_LINUX: chmod +x ./scripts/opensim/setup_opensim_linux.sh && ./scripts/opensim/setup_opensim_linux.sh
           CIBW_BEFORE_BUILD_WINDOWS: powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH 
             delocate-wheel --require-archs {arch} -w {dest_dir} -v {wheel}
-            --lib-dir ./build/opensim-workspace/opensim-install/sdk/Simbody/lib
 
       - name: Verify clean directory
         run: git diff --exit-code
