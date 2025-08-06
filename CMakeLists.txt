@@ -567,6 +567,27 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
             endif()
         endforeach()
     elseif(APPLE)
+        # Debug: List all directories that might contain SimTK libraries
+        message(STATUS "=== DEBUG: Searching for SimTK libraries ===")
+        message(STATUS "OPENSIM_INSTALL_DIR: ${OPENSIM_INSTALL_DIR}")
+        message(STATUS "OPENSIM_DEPENDENCIES_DIR: ${OPENSIM_DEPENDENCIES_DIR}")
+        
+        # Check what's actually in the OpenSim Simbody lib directory
+        if(EXISTS "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib")
+            file(GLOB ALL_FILES_IN_SIMBODY_LIB "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/*")
+            message(STATUS "All files in ${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib: ${ALL_FILES_IN_SIMBODY_LIB}")
+        else()
+            message(STATUS "Directory does not exist: ${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib")
+        endif()
+        
+        # Check dependencies Simbody lib directory
+        if(EXISTS "${OPENSIM_DEPENDENCIES_DIR}/simbody/lib")
+            file(GLOB ALL_FILES_IN_DEPS_SIMBODY_LIB "${OPENSIM_DEPENDENCIES_DIR}/simbody/lib/*")
+            message(STATUS "All files in ${OPENSIM_DEPENDENCIES_DIR}/simbody/lib: ${ALL_FILES_IN_DEPS_SIMBODY_LIB}")
+        else()
+            message(STATUS "Directory does not exist: ${OPENSIM_DEPENDENCIES_DIR}/simbody/lib")
+        endif()
+        
         # Install both versioned and unversioned SimTK libraries for macOS
         file(GLOB SIMBODY_ALL_LIBS 
             "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/libSimTK*.dylib*"
@@ -586,6 +607,40 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
             install(FILES ${SIMBODY_DEPS_LIBS}
                 DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
         endif()
+        
+        # Additional search in case libraries are in different locations
+        file(GLOB_RECURSE RECURSIVE_SIMBODY_LIBS 
+            "${OPENSIM_INSTALL_DIR}/**/libSimTK*.dylib*"
+            "${OPENSIM_DEPENDENCIES_DIR}/**/libSimTK*.dylib*"
+        )
+        message(STATUS "Recursive search found SimTK libraries: ${RECURSIVE_SIMBODY_LIBS}")
+        
+        # Install any additional libraries found recursively that weren't already included
+        foreach(LIB ${RECURSIVE_SIMBODY_LIBS})
+            list(FIND SIMBODY_ALL_LIBS "${LIB}" FOUND_IN_INSTALL)
+            list(FIND SIMBODY_DEPS_LIBS "${LIB}" FOUND_IN_DEPS)
+            if(FOUND_IN_INSTALL EQUAL -1 AND FOUND_IN_DEPS EQUAL -1)
+                message(STATUS "Installing additional SimTK library: ${LIB}")
+                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+            endif()
+        endforeach()
+        message(STATUS "=== END DEBUG ===")
+        
+        # Specifically check for the missing versioned libraries
+        set(REQUIRED_VERSIONED_LIBS
+            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/libSimTKmath.3.8.dylib"
+            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/libSimTKcommon.3.8.dylib"
+            "${OPENSIM_DEPENDENCIES_DIR}/simbody/lib/libSimTKmath.3.8.dylib"
+            "${OPENSIM_DEPENDENCIES_DIR}/simbody/lib/libSimTKcommon.3.8.dylib"
+        )
+        foreach(LIB ${REQUIRED_VERSIONED_LIBS})
+            if(EXISTS "${LIB}")
+                message(STATUS "FOUND required versioned library: ${LIB}")
+                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+            else()
+                message(STATUS "MISSING required versioned library: ${LIB}")
+            endif()
+        endforeach()
     else()
         # Linux
         file(GLOB SIMBODY_ALL_LIBS 

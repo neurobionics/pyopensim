@@ -112,6 +112,9 @@ jobs:
           CIBW_BEFORE_BUILD_MACOS: chmod +x ./scripts/opensim/setup_opensim_macos.sh && ./scripts/opensim/setup_opensim_macos.sh
           CIBW_BEFORE_BUILD_LINUX: chmod +x ./scripts/opensim/setup_opensim_linux.sh && ./scripts/opensim/setup_opensim_linux.sh
           CIBW_BEFORE_BUILD_WINDOWS: powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            delocate-wheel --require-archs {arch} -w {dest_dir} -v {wheel}
+            --lib-dir ./build/opensim-workspace/opensim-install/sdk/Simbody/lib
 
       - name: Verify clean directory
         run: git diff --exit-code
