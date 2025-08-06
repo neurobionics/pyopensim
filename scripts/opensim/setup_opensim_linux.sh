@@ -111,7 +111,7 @@ if command -v apk >/dev/null 2>&1; then
         "openssl-dev"
         "pcre-dev"
         "pcre2-dev"
-        "gfortran"
+        "gcc-gfortran"
         "patchelf"
         "openjdk8-jre-base"
         "wget"
@@ -138,7 +138,7 @@ elif command -v dnf >/dev/null 2>&1; then
         "openssl-devel"
         "pcre-devel"
         "pcre2-devel"
-        "gfortran"
+        "gcc-gfortran"
         "patchelf"
         "java-1.8.0-openjdk-devel"
         "wget"
@@ -164,7 +164,7 @@ elif command -v yum >/dev/null 2>&1; then
         "openssl-devel"
         "pcre-devel"
         "pcre2-devel"
-        "gfortran"
+        "gcc-gfortran"
         "patchelf"
         "java-1.8.0-openjdk-devel"
         "wget"
@@ -261,10 +261,24 @@ else
         apk add --no-cache "${MISSING_PACKAGES[@]}"
     elif [ "$PACKAGE_MANAGER" = "dnf" ]; then
         # Modern RHEL/AlmaLinux (manylinux_2_28+) - usually running as root
-        dnf install -y "${MISSING_PACKAGES[@]}"
+        echo "Attempting to install packages with dnf..."
+        # Try to install packages, allowing some to fail
+        for package in "${MISSING_PACKAGES[@]}"; do
+            echo "Installing $package..."
+            if ! dnf install -y "$package" 2>/dev/null; then
+                echo "Warning: Failed to install $package, continuing..."
+            fi
+        done
     elif [ "$PACKAGE_MANAGER" = "yum" ]; then
         # Legacy RHEL/CentOS (manylinux2014) - usually running as root
-        yum install -y "${MISSING_PACKAGES[@]}"
+        echo "Attempting to install packages with yum..."
+        # Try to install packages, allowing some to fail
+        for package in "${MISSING_PACKAGES[@]}"; do
+            echo "Installing $package..."
+            if ! yum install -y "$package" 2>/dev/null; then
+                echo "Warning: Failed to install $package, continuing..."
+            fi
+        done
     elif [ "$PACKAGE_MANAGER" = "apt" ]; then
         # Ubuntu/Debian environment (manylinux_2_31 armv7l or native Ubuntu)
         if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
