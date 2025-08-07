@@ -163,6 +163,7 @@ jobs:
             CMAKE_C_COMPILER_LAUNCHER=ccache
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
             CCACHE_DIR=/home/runner/.ccache
+            REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
             OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit || 'false' }}
             FORCE_REBUILD_OPENSIM=${{ inputs.force_rebuild_opensim || 'false' }}
           CIBW_ENVIRONMENT_WINDOWS: >
@@ -178,6 +179,12 @@ jobs:
             echo "=== Delocating Wheel ===" &&
             DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH 
             delocate-wheel -w {dest_dir} -v {wheel}
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            echo "=== Library Check ===" &&
+            ls -la ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTK* &&
+            echo "=== Repairing Wheel ===" &&
+            LD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH:$LD_LIBRARY_PATH 
+            auditwheel repair -w {dest_dir} {wheel}
 
       - name: Verify clean directory
         run: git diff --exit-code
