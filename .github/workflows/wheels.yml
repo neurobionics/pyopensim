@@ -19,6 +19,11 @@ on:
         required: false
         default: true
         type: boolean
+      force_rebuild_opensim:
+        description: 'Force rebuild OpenSim (bypass cache)'
+        required: false
+        default: false
+        type: boolean
   # pull_request:
   # push:
   #   branches:
@@ -111,16 +116,25 @@ jobs:
           max-size: "2G"
           verbose: 2
 
+      - name: Get OpenSim Core submodule SHA
+        id: opensim-sha
+        run: |
+          OPENSIM_SHA=$(git rev-parse HEAD:src/opensim-core)
+          echo "opensim_sha=$OPENSIM_SHA" >> $GITHUB_OUTPUT
+          echo "OpenSim Core SHA: $OPENSIM_SHA"
+        shell: bash
+
       - name: Cache OpenSim Dependencies and Build
         uses: actions/cache@v4
         id: cache-opensim
+        if: inputs.force_rebuild_opensim != true
         with:
           path: |
             build/opensim-workspace
             ~/.ccache
-          key: opensim-${{ runner.os }}-${{ github.sha }}-${{ hashFiles('scripts/opensim/setup_opensim_*.sh', 'scripts/opensim/setup_opensim_*.ps1') }}-v1
+          key: opensim-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-${{ hashFiles('scripts/opensim/setup_opensim_*.sh', 'scripts/opensim/setup_opensim_*.ps1') }}-v2
           restore-keys: |
-            opensim-${{ runner.os }}-${{ github.sha }}-
+            opensim-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-
             opensim-${{ runner.os }}-
 
       - uses: pypa/cibuildwheel@v3.1.3
@@ -141,14 +155,17 @@ jobs:
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
             CCACHE_DIR=/Users/runner/.ccache
             REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
-            OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit }}
+            OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit || 'false' }}
+            FORCE_REBUILD_OPENSIM=${{ inputs.force_rebuild_opensim || 'false' }}
           CIBW_ENVIRONMENT_LINUX: >
             CMAKE_C_COMPILER_LAUNCHER=ccache
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
             CCACHE_DIR=/home/runner/.ccache
-            OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit }}
+            OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit || 'false' }}
+            FORCE_REBUILD_OPENSIM=${{ inputs.force_rebuild_opensim || 'false' }}
           CIBW_ENVIRONMENT_WINDOWS: >
-            OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit }}
+            OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit || 'false' }}
+            FORCE_REBUILD_OPENSIM=${{ inputs.force_rebuild_opensim || 'false' }}
           CIBW_BEFORE_BUILD_MACOS: chmod +x ./scripts/opensim/setup_opensim_macos.sh && ./scripts/opensim/setup_opensim_macos.sh
           CIBW_BEFORE_BUILD_LINUX: chmod +x ./scripts/opensim/setup_opensim_linux.sh && ./scripts/opensim/setup_opensim_linux.sh
           CIBW_BEFORE_BUILD_WINDOWS: powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1

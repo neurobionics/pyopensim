@@ -70,7 +70,9 @@ fi
 CACHE_MARKER="$WORKSPACE_DIR/.opensim_build_complete_${OPENSIM_COMMIT_HASH}"
 
 echo "Checking for existing OpenSim build cache..."
-if [ "$OPENSIM_CACHE_HIT" = "true" ] && [ -f "$CACHE_MARKER" ] && [ -f "$WORKSPACE_DIR/opensim-install/lib/libosimCommon.so" ]; then
+if [ "$FORCE_REBUILD_OPENSIM" = "true" ]; then
+    echo "⚠ Force rebuild requested, bypassing all caches"
+elif [ "$OPENSIM_CACHE_HIT" = "true" ] && [ -f "$CACHE_MARKER" ] && [ -f "$WORKSPACE_DIR/opensim-install/lib/libosimCommon.so" ]; then
     echo "✓ OpenSim build cache is valid (commit: ${OPENSIM_COMMIT_HASH:0:8}), skipping rebuild"
     echo "Cache marker found: $CACHE_MARKER"
     

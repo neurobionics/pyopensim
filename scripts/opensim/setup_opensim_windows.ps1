@@ -75,7 +75,9 @@ if (Test-Path "$OPENSIM_ROOT\src\opensim-core\.git") {
 $CACHE_MARKER = "$WORKSPACE_DIR\.opensim_build_complete_$OPENSIM_COMMIT_HASH"
 
 Write-Output "Checking for existing OpenSim build cache..."
-if ($env:OPENSIM_CACHE_HIT -eq "true" -and (Test-Path $CACHE_MARKER) -and (Test-Path "$WORKSPACE_DIR\opensim-install\lib\osimCommon.dll")) {
+if ($env:FORCE_REBUILD_OPENSIM -eq "true") {
+    Write-Output "⚠ Force rebuild requested, bypassing all caches"
+} elseif ($env:OPENSIM_CACHE_HIT -eq "true" -and (Test-Path $CACHE_MARKER) -and (Test-Path "$WORKSPACE_DIR\opensim-install\lib\osimCommon.dll")) {
     Write-Output "✓ OpenSim build cache is valid (commit: $($OPENSIM_COMMIT_HASH.Substring(0,8))), skipping rebuild"
     Write-Output "Cache marker found: $CACHE_MARKER"
     exit 0
