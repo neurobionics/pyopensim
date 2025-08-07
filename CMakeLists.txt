@@ -721,11 +721,25 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
         # Linux - ensure both versioned and symlinked libraries are installed
         message(STATUS "Installing SimTK libraries for Linux...")
         
-        # First, find all SimTK libraries (including versioned ones)
-        file(GLOB SIMBODY_ALL_LIBS 
-            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/libSimTK*.so*"
+        # Check both lib and lib64 directories for SimTK libraries
+        set(SIMBODY_SEARCH_PATHS
+            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib"
+            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib64"
         )
-        message(STATUS "Found SimTK libraries: ${SIMBODY_ALL_LIBS}")
+        
+        set(SIMBODY_ALL_LIBS)
+        foreach(SEARCH_PATH ${SIMBODY_SEARCH_PATHS})
+            message(STATUS "Searching for SimTK libraries in: ${SEARCH_PATH}")
+            file(GLOB FOUND_LIBS "${SEARCH_PATH}/libSimTK*.so*")
+            if(FOUND_LIBS)
+                message(STATUS "Found SimTK libraries in ${SEARCH_PATH}: ${FOUND_LIBS}")
+                list(APPEND SIMBODY_ALL_LIBS ${FOUND_LIBS})
+            else()
+                message(STATUS "No SimTK libraries in ${SEARCH_PATH}")
+            endif()
+        endforeach()
+        
+        message(STATUS "All found SimTK libraries: ${SIMBODY_ALL_LIBS}")
         
         if(SIMBODY_ALL_LIBS)
             # Install all found libraries (both versioned and symlinks)
@@ -734,23 +748,20 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
                 install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
             endforeach()
         else()
-            message(WARNING "No SimTK libraries found in ${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/")
+            message(WARNING "No SimTK libraries found in any search paths: ${SIMBODY_SEARCH_PATHS}")
         endif()
         
-        # Explicitly ensure versioned libraries are included (in case glob misses them)
-        set(REQUIRED_VERSIONED_LIBS
-            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/libSimTKmath.so.3.8"
-            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/libSimTKcommon.so.3.8"
-            "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/libSimTKsimbody.so.3.8"
+        # Also check dependencies-install directory as fallback
+        file(GLOB DEPS_SIMBODY_LIBS 
+            "${OPENSIM_DEPENDENCIES_DIR}/simbody/lib*/libSimTK*.so*"
         )
-        foreach(LIB ${REQUIRED_VERSIONED_LIBS})
-            if(EXISTS "${LIB}")
-                message(STATUS "Explicitly installing versioned library: ${LIB}")
+        if(DEPS_SIMBODY_LIBS)
+            message(STATUS "Found additional SimTK libraries in dependencies: ${DEPS_SIMBODY_LIBS}")
+            foreach(LIB ${DEPS_SIMBODY_LIBS})
+                message(STATUS "Installing dependency SimTK library: ${LIB}")
                 install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
-            else()
-                message(WARNING "Required versioned library not found: ${LIB}")
-            endif()
-        endforeach()
+            endforeach()
+        endif()
     endif()
     
     # Install optional libraries - platform specific paths
