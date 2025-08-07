@@ -109,13 +109,6 @@ jobs:
           fi
         shell: bash
 
-      - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          key: ${{ github.job }}-${{ matrix.os }}-${{ github.ref }}
-          max-size: "2G"
-          verbose: 2
-
       - name: Get OpenSim Core submodule SHA
         id: opensim-sha
         run: |
@@ -124,7 +117,16 @@ jobs:
           echo "OpenSim Core SHA: $OPENSIM_SHA"
         shell: bash
 
-      - name: Cache OpenSim Dependencies and Build
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ github.job }}-${{ matrix.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}
+          restore-keys: |
+            ${{ github.job }}-${{ matrix.os }}-
+          max-size: "2G"
+          verbose: 2
+
+      - name: Cache OpenSim Build
         uses: actions/cache@v4
         id: cache-opensim
         if: inputs.force_rebuild_opensim != true
@@ -132,7 +134,7 @@ jobs:
           path: |
             build/opensim-workspace
             ~/.ccache
-          key: opensim-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-v3
+          key: opensim-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-v4
           restore-keys: |
             opensim-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-
             opensim-${{ runner.os }}-

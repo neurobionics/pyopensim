@@ -96,16 +96,18 @@ echo
 # Create workspace
 mkdir -p "$WORKSPACE_DIR"
 
-# Cache validation - check if OpenSim is already built and valid
+# Cache validation with smart dependency detection
 OPENSIM_COMMIT_HASH=""
 if [ -d "$OPENSIM_ROOT/src/opensim-core/.git" ]; then
     OPENSIM_COMMIT_HASH=$(git -C "$OPENSIM_ROOT/src/opensim-core" rev-parse HEAD 2>/dev/null || echo "unknown")
 fi
+
 CACHE_MARKER="$WORKSPACE_DIR/.opensim_build_complete_${OPENSIM_COMMIT_HASH}"
 
 echo "Checking for existing OpenSim build cache..."
 if [ "$FORCE_REBUILD_OPENSIM" = "true" ]; then
     echo "⚠ Force rebuild requested, bypassing all caches"
+    rm -f "$CACHE_MARKER"
 elif [ "$OPENSIM_CACHE_HIT" = "true" ] && [ -f "$CACHE_MARKER" ] && [ -f "$WORKSPACE_DIR/opensim-install/lib/libosimCommon.dylib" ]; then
     echo "✓ OpenSim build cache is valid (commit: ${OPENSIM_COMMIT_HASH:0:8}), skipping rebuild"
     echo "Cache marker found: $CACHE_MARKER"
@@ -114,14 +116,34 @@ elif [ "$OPENSIM_CACHE_HIT" = "true" ] && [ -f "$CACHE_MARKER" ] && [ -f "$WORKS
     if [ -d "$HOME/swig/bin" ]; then
         export PATH="$HOME/swig/bin:$PATH"
         echo "SWIG path restored from cache"
+    elif [ -d "$WORKSPACE_DIR/swig-install/bin" ]; then
+        export PATH="$WORKSPACE_DIR/swig-install/bin:$PATH"
+        echo "SWIG path restored from workspace cache"
     fi
     
     exit 0
 fi
 
-echo "Cache miss or invalid cache, proceeding with OpenSim build..."
+echo "Cache miss, proceeding with OpenSim build..."
 if [ -n "$OPENSIM_COMMIT_HASH" ] && [ "$OPENSIM_COMMIT_HASH" != "unknown" ]; then
     echo "Building for OpenSim commit: ${OPENSIM_COMMIT_HASH:0:8}"
+fi
+
+# Smart dependency detection - check if we can skip SWIG/deps rebuild  
+SKIP_DEPS=false
+if [ "$OPENSIM_CACHE_HIT" = "true" ]; then
+    if [ -d "$WORKSPACE_DIR/swig-install/bin" ] || [ -d "$HOME/swig/bin" ]; then
+        if [ -d "$WORKSPACE_DIR/dependencies-install" ]; then
+            echo "✓ Partial cache hit - SWIG and dependencies available, skipping deps build"
+            SKIP_DEPS=true
+            # Restore SWIG to PATH
+            if [ -d "$HOME/swig/bin" ]; then
+                export PATH="$HOME/swig/bin:$PATH"
+            elif [ -d "$WORKSPACE_DIR/swig-install/bin" ]; then
+                export PATH="$WORKSPACE_DIR/swig-install/bin:$PATH"
+            fi
+        fi
+    fi
 fi
 
 # Install system dependencies

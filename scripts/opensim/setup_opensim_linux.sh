@@ -62,16 +62,18 @@ fi
 # Create workspace
 mkdir -p "$WORKSPACE_DIR"
 
-# Cache validation - check if OpenSim is already built and valid
+# Cache validation with smart dependency detection  
 OPENSIM_COMMIT_HASH=""
 if [ -d "$OPENSIM_ROOT/src/opensim-core/.git" ]; then
     OPENSIM_COMMIT_HASH=$(git -C "$OPENSIM_ROOT/src/opensim-core" rev-parse HEAD 2>/dev/null || echo "unknown")
 fi
+
 CACHE_MARKER="$WORKSPACE_DIR/.opensim_build_complete_${OPENSIM_COMMIT_HASH}"
 
 echo "Checking for existing OpenSim build cache..."
 if [ "$FORCE_REBUILD_OPENSIM" = "true" ]; then
     echo "⚠ Force rebuild requested, bypassing all caches"
+    rm -f "$CACHE_MARKER"
 elif [ "$OPENSIM_CACHE_HIT" = "true" ] && [ -f "$CACHE_MARKER" ] && [ -f "$WORKSPACE_DIR/opensim-install/lib/libosimCommon.so" ]; then
     echo "✓ OpenSim build cache is valid (commit: ${OPENSIM_COMMIT_HASH:0:8}), skipping rebuild"
     echo "Cache marker found: $CACHE_MARKER"
@@ -80,14 +82,34 @@ elif [ "$OPENSIM_CACHE_HIT" = "true" ] && [ -f "$CACHE_MARKER" ] && [ -f "$WORKS
     if [ -d "$HOME/swig/bin" ]; then
         export PATH="$HOME/swig/bin:$PATH"
         echo "SWIG path restored from cache"
+    elif [ -d "$WORKSPACE_DIR/swig-install/bin" ]; then
+        export PATH="$WORKSPACE_DIR/swig-install/bin:$PATH"
+        echo "SWIG path restored from workspace cache"
     fi
     
     exit 0
 fi
 
-echo "Cache miss or invalid cache, proceeding with OpenSim build..."
+echo "Cache miss, proceeding with OpenSim build..."
 if [ -n "$OPENSIM_COMMIT_HASH" ] && [ "$OPENSIM_COMMIT_HASH" != "unknown" ]; then
     echo "Building for OpenSim commit: ${OPENSIM_COMMIT_HASH:0:8}"
+fi
+
+# Smart dependency detection - check if we can skip SWIG/deps rebuild
+SKIP_DEPS=false
+if [ "$OPENSIM_CACHE_HIT" = "true" ]; then
+    if [ -d "$WORKSPACE_DIR/swig-install/bin" ] || [ -d "$HOME/swig/bin" ]; then
+        if [ -d "$WORKSPACE_DIR/dependencies-install" ]; then
+            echo "✓ Partial cache hit - SWIG and dependencies available, skipping deps build"
+            SKIP_DEPS=true
+            # Restore SWIG to PATH
+            if [ -d "$HOME/swig/bin" ]; then
+                export PATH="$HOME/swig/bin:$PATH"
+            elif [ -d "$WORKSPACE_DIR/swig-install/bin" ]; then
+                export PATH="$WORKSPACE_DIR/swig-install/bin:$PATH"
+            fi
+        fi
+    fi
 fi
 
 # Check system dependencies
@@ -303,48 +325,54 @@ if [ "$DEPS_ONLY" = true ]; then
     exit 0
 fi
 
-# Download and install SWIG 4.1.1
-echo "Installing SWIG 4.1.1..."
-mkdir -p "$WORKSPACE_DIR/swig-source" && cd "$WORKSPACE_DIR/swig-source"
-if [ ! -f "v4.1.1.tar.gz" ]; then
-    # Try wget first, fallback to curl if not available
-    if command -v wget >/dev/null 2>&1; then
-        wget -q --show-progress https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
-    elif command -v curl >/dev/null 2>&1; then
-        curl -L -o v4.1.1.tar.gz https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
-    else
-        echo "Error: Neither wget nor curl is available for downloading SWIG"
-        exit 1
+# Skip dependencies build if we have a cache hit
+if [ "$SKIP_DEPS" = "false" ]; then
+    # Download and install SWIG 4.1.1
+    echo "Installing SWIG 4.1.1..."
+    mkdir -p "$WORKSPACE_DIR/swig-source" && cd "$WORKSPACE_DIR/swig-source"
+    if [ ! -f "v4.1.1.tar.gz" ]; then
+        # Try wget first, fallback to curl if not available
+        if command -v wget >/dev/null 2>&1; then
+            wget -q --show-progress https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
+        elif command -v curl >/dev/null 2>&1; then
+            curl -L -o v4.1.1.tar.gz https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
+        else
+            echo "Error: Neither wget nor curl is available for downloading SWIG"
+            exit 1
+        fi
     fi
-fi
-if [ ! -d "swig-4.1.1" ]; then
-    tar xzf v4.1.1.tar.gz
-fi
-cd swig-4.1.1
-if [ ! -f "configure" ]; then
-    sh autogen.sh
-fi
-if [ ! -f "Makefile" ]; then
-        ./configure --prefix="$HOME/swig" --disable-ccache
-fi
-make -j$NUM_JOBS && make install
-echo "SWIG installation complete."
+    if [ ! -d "swig-4.1.1" ]; then
+        tar xzf v4.1.1.tar.gz
+    fi
+    cd swig-4.1.1
+    if [ ! -f "configure" ]; then
+        sh autogen.sh
+    fi
+    if [ ! -f "Makefile" ]; then
+            ./configure --prefix="$HOME/swig" --disable-ccache
+    fi
+    make -j$NUM_JOBS && make install
+    echo "SWIG installation complete."
 
-# Add SWIG to PATH for the rest of the script
-export PATH="$HOME/swig/bin:$PATH"
+    # Add SWIG to PATH for the rest of the script
+    export PATH="$HOME/swig/bin:$PATH"
 
-# Build OpenSim dependencies
-echo "Building OpenSim dependencies..."
-mkdir -p "$WORKSPACE_DIR/dependencies-build"
-cd "$WORKSPACE_DIR/dependencies-build"
+    # Build OpenSim dependencies
+    echo "Building OpenSim dependencies..."
+    mkdir -p "$WORKSPACE_DIR/dependencies-build"
+    cd "$WORKSPACE_DIR/dependencies-build"
 
-cmake "$OPENSIM_ROOT/src/opensim-core/dependencies" \
-    -DCMAKE_INSTALL_PREFIX="$WORKSPACE_DIR/dependencies-install" \
-    -DCMAKE_BUILD_TYPE=$DEBUG_TYPE \
-    -DSUPERBUILD_ezc3d=ON \
-    -DOPENSIM_WITH_CASADI=OFF
+    cmake "$OPENSIM_ROOT/src/opensim-core/dependencies" \
+        -DCMAKE_INSTALL_PREFIX="$WORKSPACE_DIR/dependencies-install" \
+        -DCMAKE_BUILD_TYPE=$DEBUG_TYPE \
+        -DSUPERBUILD_ezc3d=ON \
+        -DOPENSIM_WITH_CASADI=OFF
 
-cmake --build . --config $DEBUG_TYPE -j$NUM_JOBS
+    cmake --build . --config $DEBUG_TYPE -j$NUM_JOBS
+    echo "✓ Dependencies build complete"
+else
+    echo "⚡ Skipping dependencies build (using cached version)"
+fi
 
 # Build OpenSim core
 echo "Building OpenSim core..."
