@@ -39,7 +39,70 @@ else()
     message(STATUS "SWIG not found in workspace, will search system paths")
 endif()
 find_package(SWIG 4.1.1 REQUIRED)
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+
+# Try to find Python3 with Development components, fallback gracefully for cibuildwheel
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+find_package(Python3 COMPONENTS Development QUIET)
+
+# If Development component wasn't found, try alternative approach for cibuildwheel/manylinux
+if(NOT Python3_Development_FOUND)
+    message(STATUS "Python3 Development component not found via find_package, trying manual detection...")
+    
+    # Get Python include directory manually
+    execute_process(
+        COMMAND "${Python3_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_path('include'))"
+        OUTPUT_VARIABLE Python3_INCLUDE_DIRS
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE PYTHON_INCLUDE_RESULT
+    )
+    
+    # Get Python library path manually
+    execute_process(
+        COMMAND "${Python3_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR') or '')"
+        OUTPUT_VARIABLE PYTHON_LIBDIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    
+    execute_process(
+        COMMAND "${Python3_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_config_var('LDLIBRARY') or sysconfig.get_config_var('LIBRARY') or '')"
+        OUTPUT_VARIABLE PYTHON_LIBRARY_NAME
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    
+    if(PYTHON_INCLUDE_RESULT EQUAL 0 AND Python3_INCLUDE_DIRS AND EXISTS "${Python3_INCLUDE_DIRS}")
+        message(STATUS "Found Python include directory: ${Python3_INCLUDE_DIRS}")
+        
+        # Try to find the library file
+        if(PYTHON_LIBDIR AND PYTHON_LIBRARY_NAME)
+            set(Python3_LIBRARY_CANDIDATES
+                "${PYTHON_LIBDIR}/${PYTHON_LIBRARY_NAME}"
+                "${PYTHON_LIBDIR}/lib${PYTHON_LIBRARY_NAME}"
+            )
+            
+            foreach(candidate ${Python3_LIBRARY_CANDIDATES})
+                if(EXISTS "${candidate}")
+                    set(Python3_LIBRARIES "${candidate}")
+                    message(STATUS "Found Python library: ${Python3_LIBRARIES}")
+                    break()
+                endif()
+            endforeach()
+        endif()
+        
+        # If we found includes but not libraries, that's often OK for SWIG bindings
+        # Many Python installations (especially in containers) use dynamic linking
+        if(NOT Python3_LIBRARIES)
+            message(STATUS "Python development libraries not found, but includes are available")
+            message(STATUS "This is often acceptable for SWIG bindings in containerized environments")
+            set(Python3_LIBRARIES "") # Set empty to avoid undefined variable errors
+        endif()
+        
+        set(Python3_Development_FOUND TRUE)
+    else()
+        message(FATAL_ERROR "Could not find Python development headers. Please install python3-dev or python3-devel package.")
+    endif()
+else()
+    message(STATUS "Found Python3 Development component via find_package")
+endif()
 
 # Find NumPy headers manually (as CMake NumPy component may not be available)
 execute_process(
@@ -313,7 +376,7 @@ macro(OpenSimAddPythonModule)
             "${Python3_INCLUDE_DIRS}"
             "${Python3_NumPy_INCLUDE_DIRS}")
     
-    # Python library linking (handle static linking case on macOS)
+    # Python library linking (handle static linking case on macOS and missing libraries)
     execute_process(COMMAND "${Python3_EXECUTABLE}" -c
         "import sysconfig; print(sysconfig.get_config_var('LDSHARED'))"
         OUTPUT_VARIABLE PYTHON_LDSHARED
@@ -321,8 +384,12 @@ macro(OpenSimAddPythonModule)
     if("${PYTHON_LDSHARED}" MATCHES "dynamic_lookup")
         set_target_properties(${_libname} PROPERTIES LINK_FLAGS
             "-undefined dynamic_lookup")
-    else()
+    elseif(Python3_LIBRARIES)
         target_link_libraries(${_libname} ${Python3_LIBRARIES})
+    else()
+        # No Python libraries found, but this is often OK for SWIG bindings
+        # in containerized environments where Python symbols are resolved at runtime
+        message(STATUS "Skipping Python library linking (symbols resolved at runtime)")
     endif()
 
     # Link against OpenSim libraries
