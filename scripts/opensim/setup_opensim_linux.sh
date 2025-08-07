@@ -7,7 +7,32 @@ set -e
 DEBUG_TYPE=${CMAKE_BUILD_TYPE:-Release}
 NUM_JOBS=${CMAKE_BUILD_PARALLEL_LEVEL:-4}
 OPENSIM_ROOT=$(pwd)
-WORKSPACE_DIR="$OPENSIM_ROOT/build/opensim-workspace"
+
+# Handle cibuildwheel container environment - use host-mapped cache if available
+if [ -n "$PYOSIM_HOST_CACHE_DIR" ]; then
+    echo "🐳 Detected cibuildwheel container environment"
+    echo "   Host cache directory: $PYOSIM_HOST_CACHE_DIR"
+    
+    # Validate that host filesystem is accessible
+    if [ -d "$(dirname "$PYOSIM_HOST_CACHE_DIR")" ]; then
+        # Create cache directory if it doesn't exist
+        mkdir -p "$PYOSIM_HOST_CACHE_DIR"
+        WORKSPACE_DIR="$PYOSIM_HOST_CACHE_DIR"
+        echo "   ✅ Using host-mapped cache: $WORKSPACE_DIR"
+        
+        # Create local symlink for easier access
+        mkdir -p "$OPENSIM_ROOT/build"
+        if [ ! -L "$OPENSIM_ROOT/build/opensim-workspace" ]; then
+            ln -sf "$PYOSIM_HOST_CACHE_DIR" "$OPENSIM_ROOT/build/opensim-workspace"
+            echo "   📁 Created symlink: build/opensim-workspace -> host cache"
+        fi
+    else
+        echo "   ⚠️  Host filesystem not accessible, falling back to container-local cache"
+        WORKSPACE_DIR="$OPENSIM_ROOT/build/opensim-workspace"
+    fi
+else
+    WORKSPACE_DIR="$OPENSIM_ROOT/build/opensim-workspace"
+fi
 
 # Parse command line arguments
 DEPS_ONLY=false
@@ -70,7 +95,10 @@ fi
 
 CACHE_MARKER="$WORKSPACE_DIR/.opensim_build_complete_${OPENSIM_COMMIT_HASH}"
 
-echo "Checking for existing OpenSim build cache..."
+echo "🔍 Checking for existing OpenSim build cache..."
+echo "   Cache marker: $CACHE_MARKER"
+echo "   OPENSIM_CACHE_HIT: ${OPENSIM_CACHE_HIT:-unset}"
+echo "   Workspace directory: $WORKSPACE_DIR"
 if [ "$FORCE_REBUILD_OPENSIM" = "true" ]; then
     echo "⚠ Force rebuild requested, bypassing all caches"
     rm -f "$CACHE_MARKER"

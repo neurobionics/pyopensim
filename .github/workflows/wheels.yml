@@ -120,9 +120,9 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ github.job }}-${{ matrix.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}
+          key: ccache-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}
           restore-keys: |
-            ${{ github.job }}-${{ matrix.os }}-
+            ccache-${{ runner.os }}-
           max-size: "2G"
           verbose: 2
 
@@ -156,13 +156,15 @@ jobs:
             CMAKE_C_COMPILER_LAUNCHER=ccache
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
             CCACHE_DIR=/Users/runner/.ccache
+            PYOSIM_HOST_CACHE_DIR=${{ github.workspace }}/build/opensim-workspace
             REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
             OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit || 'false' }}
             FORCE_REBUILD_OPENSIM=${{ inputs.force_rebuild_opensim || 'false' }}
           CIBW_ENVIRONMENT_LINUX: >
             CMAKE_C_COMPILER_LAUNCHER=ccache
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
-            CCACHE_DIR=/home/runner/.ccache
+            CCACHE_DIR=/host${{ github.workspace }}/.ccache
+            PYOSIM_HOST_CACHE_DIR=/host${{ github.workspace }}/build/opensim-workspace
             OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit || 'false' }}
             FORCE_REBUILD_OPENSIM=${{ inputs.force_rebuild_opensim || 'false' }}
           CIBW_ENVIRONMENT_WINDOWS: >
