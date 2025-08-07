@@ -185,25 +185,27 @@ jobs:
             pwd &&
             echo "=== Debug: Looking for build directory ===" &&
             find . -name "opensim-workspace" -type d 2>/dev/null | head -5 &&
-            echo "=== Debug: Looking for SimTK libraries recursively ===" &&
+            echo "=== Debug: Looking for all required libraries ===" &&
             SIMTK_LIBS=$(find . -name "libSimTK*.so*" 2>/dev/null | head -10) &&
             echo "Found SimTK libraries: $SIMTK_LIBS" &&
-            echo "=== Finding Simbody lib directory ===" &&
-            SIMBODY_LIB_DIR=$(find . -path "*/opensim-install/sdk/Simbody/lib" -type d 2>/dev/null | head -1) &&
-            if [ -n "$SIMBODY_LIB_DIR" ]; then
-              echo "Found Simbody lib directory: $SIMBODY_LIB_DIR" &&
-              ls -la "$SIMBODY_LIB_DIR"/libSimTK* 2>/dev/null &&
-              export LD_LIBRARY_PATH="$SIMBODY_LIB_DIR:$LD_LIBRARY_PATH"
-            else
-              echo "Simbody lib directory not found, trying to locate any SimTK library directory" &&
-              if [ -n "$SIMTK_LIBS" ]; then
-                FIRST_LIB=$(echo "$SIMTK_LIBS" | head -1) &&
-                LIB_DIR=$(dirname "$FIRST_LIB") &&
-                echo "Using library directory from first found SimTK lib: $LIB_DIR" &&
-                export LD_LIBRARY_PATH="$LIB_DIR:$LD_LIBRARY_PATH"
-              else
-                echo "No SimTK libraries found - wheel repair may fail"
+            echo "=== Looking for other OpenSim libraries ===" &&
+            find . -name "libezc3d.so*" 2>/dev/null | head -5 &&
+            find . -name "libosim*.so*" 2>/dev/null | head -10 &&
+            echo "=== Finding all relevant library directories ===" &&
+            ALL_LIB_DIRS=$(find . -path "*/opensim-workspace/*/lib*" -type d 2>/dev/null | sort -u) &&
+            echo "All potential library directories: $ALL_LIB_DIRS" &&
+            LIB_DIRS="" &&
+            for dir in $ALL_LIB_DIRS; do
+              if ls "$dir"/lib*.so* >/dev/null 2>&1; then
+                echo "Found libraries in: $dir" &&
+                LIB_DIRS="$dir:$LIB_DIRS"
               fi
+            done &&
+            if [ -n "$LIB_DIRS" ]; then
+              echo "Final library directories: $LIB_DIRS" &&
+              export LD_LIBRARY_PATH="$LIB_DIRS:$LD_LIBRARY_PATH"
+            else
+              echo "No library directories with .so files found - wheel repair may fail"
             fi &&
             echo "=== Final LD_LIBRARY_PATH ===" &&
             echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" &&
