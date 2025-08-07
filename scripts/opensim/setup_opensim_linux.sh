@@ -118,6 +118,7 @@ if command -v apk >/dev/null 2>&1; then
         "bison"
         "byacc"
         "linux-headers"
+        "ccache"
     )
 elif command -v dnf >/dev/null 2>&1; then
     echo "Detected modern RHEL/AlmaLinux (manylinux_2_28+) with dnf"
@@ -144,6 +145,7 @@ elif command -v dnf >/dev/null 2>&1; then
         "wget"
         "bison"
         "byacc"
+        "ccache"
     )
 elif command -v yum >/dev/null 2>&1; then
     echo "Detected legacy RHEL/CentOS (manylinux2014) with yum"
@@ -170,6 +172,7 @@ elif command -v yum >/dev/null 2>&1; then
         "wget"
         "bison"
         "byacc"
+        "ccache"
     )
 elif command -v apt-get >/dev/null 2>&1; then
     echo "Detected Debian/Ubuntu environment with apt"
@@ -200,6 +203,7 @@ elif command -v apt-get >/dev/null 2>&1; then
         "wget"
         "bison"
         "byacc"
+        "ccache"
     )
 else
     echo "Warning: No supported package manager found (apk/dnf/yum/apt-get)"
