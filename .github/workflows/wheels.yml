@@ -132,7 +132,7 @@ jobs:
           path: |
             build/opensim-workspace
             ~/.ccache
-          key: opensim-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-${{ hashFiles('scripts/opensim/setup_opensim_*.sh', 'scripts/opensim/setup_opensim_*.ps1') }}-v2
+          key: opensim-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-v3
           restore-keys: |
             opensim-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-
             opensim-${{ runner.os }}-
