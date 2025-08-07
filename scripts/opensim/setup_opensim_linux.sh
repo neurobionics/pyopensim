@@ -13,18 +13,30 @@ if [ -n "$PYOSIM_HOST_CACHE_DIR" ]; then
     echo "🐳 Detected cibuildwheel container environment"
     echo "   Host cache directory: $PYOSIM_HOST_CACHE_DIR"
     
-    # Validate that host filesystem is accessible
-    if [ -d "$(dirname "$PYOSIM_HOST_CACHE_DIR")" ]; then
-        # Create cache directory if it doesn't exist
-        mkdir -p "$PYOSIM_HOST_CACHE_DIR"
-        WORKSPACE_DIR="$PYOSIM_HOST_CACHE_DIR"
-        echo "   ✅ Using host-mapped cache: $WORKSPACE_DIR"
-        
-        # Create local symlink for easier access
-        mkdir -p "$OPENSIM_ROOT/build"
-        if [ ! -L "$OPENSIM_ROOT/build/opensim-workspace" ]; then
-            ln -sf "$PYOSIM_HOST_CACHE_DIR" "$OPENSIM_ROOT/build/opensim-workspace"
-            echo "   📁 Created symlink: build/opensim-workspace -> host cache"
+    # Validate that host filesystem is accessible  
+    echo "   🔍 Checking host filesystem access:"
+    echo "      Parent dir: $(dirname "$PYOSIM_HOST_CACHE_DIR")"
+    echo "      Parent exists: $([ -d "$(dirname "$PYOSIM_HOST_CACHE_DIR")" ] && echo "YES" || echo "NO")"
+    echo "      Host root accessible: $([ -d "/host" ] && echo "YES" || echo "NO")"
+    echo "      /host contents: $(ls -la /host 2>/dev/null | head -3 || echo "NONE")"
+    
+    # Check if /host is accessible - if so, we can create the cache directory
+    if [ -d "/host" ]; then
+        echo "   📁 Host filesystem is accessible, attempting to create cache directory..."
+        # Create parent directories first
+        if mkdir -p "$PYOSIM_HOST_CACHE_DIR" 2>/dev/null; then
+            WORKSPACE_DIR="$PYOSIM_HOST_CACHE_DIR"
+            echo "   ✅ Using host-mapped cache: $WORKSPACE_DIR"
+            
+            # Create local symlink for easier access
+            mkdir -p "$OPENSIM_ROOT/build"
+            if [ ! -L "$OPENSIM_ROOT/build/opensim-workspace" ]; then
+                ln -sf "$PYOSIM_HOST_CACHE_DIR" "$OPENSIM_ROOT/build/opensim-workspace"
+                echo "   📁 Created symlink: build/opensim-workspace -> host cache"
+            fi
+        else
+            echo "   ⚠️  Failed to create host cache directory, falling back to container-local cache"
+            WORKSPACE_DIR="$OPENSIM_ROOT/build/opensim-workspace"
         fi
     else
         echo "   ⚠️  Host filesystem not accessible, falling back to container-local cache"
@@ -89,9 +101,16 @@ mkdir -p "$WORKSPACE_DIR"
 
 # Cache validation with smart dependency detection  
 OPENSIM_COMMIT_HASH=""
+echo "🔍 Detecting OpenSim commit hash..."
+echo "   Git repo check: $([ -d "$OPENSIM_ROOT/src/opensim-core/.git" ] && echo "EXISTS" || echo "MISSING")"
+echo "   Submodule dir: $([ -d "$OPENSIM_ROOT/src/opensim-core" ] && echo "EXISTS" || echo "MISSING")"
 if [ -d "$OPENSIM_ROOT/src/opensim-core/.git" ]; then
     OPENSIM_COMMIT_HASH=$(git -C "$OPENSIM_ROOT/src/opensim-core" rev-parse HEAD 2>/dev/null || echo "unknown")
+elif [ -d "$OPENSIM_ROOT/src/opensim-core" ]; then
+    # Try alternative methods in case .git is not a directory (could be a gitfile)  
+    OPENSIM_COMMIT_HASH=$(cd "$OPENSIM_ROOT/src/opensim-core" && git rev-parse HEAD 2>/dev/null || echo "unknown")
 fi
+echo "   Detected commit: ${OPENSIM_COMMIT_HASH}"
 
 CACHE_MARKER="$WORKSPACE_DIR/.opensim_build_complete_${OPENSIM_COMMIT_HASH}"
 
