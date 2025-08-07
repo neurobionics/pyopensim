@@ -7,6 +7,7 @@ Portable python bindings for OpenSim with type hints
 - **Cross-Platform**: Supports Windows, macOS, and Linux
 - **OpenSim's Native SWIG Bindings**: Uses OpenSim's official SWIG bindings for consistency
 
+
 ## Development
 
 ### Build Caching

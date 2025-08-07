@@ -163,7 +163,6 @@ jobs:
             CMAKE_C_COMPILER_LAUNCHER=ccache
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
             CCACHE_DIR=/home/runner/.ccache
-            REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
             OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit || 'false' }}
             FORCE_REBUILD_OPENSIM=${{ inputs.force_rebuild_opensim || 'false' }}
           CIBW_ENVIRONMENT_WINDOWS: >
@@ -180,10 +179,33 @@ jobs:
             DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH 
             delocate-wheel -w {dest_dir} -v {wheel}
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
-            echo "=== Library Check ===" &&
-            ls -la ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTK* &&
+            echo "=== Debug: Working Directory and Structure ===" &&
+            pwd &&
+            echo "=== Debug: Looking for build directory ===" &&
+            find . -name "opensim-workspace" -type d 2>/dev/null | head -5 &&
+            echo "=== Debug: Looking for SimTK libraries recursively ===" &&
+            SIMTK_LIBS=$(find . -name "libSimTK*.so*" 2>/dev/null | head -10) &&
+            echo "Found SimTK libraries: $SIMTK_LIBS" &&
+            echo "=== Finding Simbody lib directory ===" &&
+            SIMBODY_LIB_DIR=$(find . -path "*/opensim-install/sdk/Simbody/lib" -type d 2>/dev/null | head -1) &&
+            if [ -n "$SIMBODY_LIB_DIR" ]; then
+              echo "Found Simbody lib directory: $SIMBODY_LIB_DIR" &&
+              ls -la "$SIMBODY_LIB_DIR"/libSimTK* 2>/dev/null &&
+              export LD_LIBRARY_PATH="$SIMBODY_LIB_DIR:$LD_LIBRARY_PATH"
+            else
+              echo "Simbody lib directory not found, trying to locate any SimTK library directory" &&
+              if [ -n "$SIMTK_LIBS" ]; then
+                FIRST_LIB=$(echo "$SIMTK_LIBS" | head -1) &&
+                LIB_DIR=$(dirname "$FIRST_LIB") &&
+                echo "Using library directory from first found SimTK lib: $LIB_DIR" &&
+                export LD_LIBRARY_PATH="$LIB_DIR:$LD_LIBRARY_PATH"
+              else
+                echo "No SimTK libraries found - wheel repair may fail"
+              fi
+            fi &&
+            echo "=== Final LD_LIBRARY_PATH ===" &&
+            echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" &&
             echo "=== Repairing Wheel ===" &&
-            LD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH:$LD_LIBRARY_PATH 
             auditwheel repair -w {dest_dir} {wheel}
 
       - name: Verify clean directory

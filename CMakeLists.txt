@@ -569,6 +569,9 @@ set_target_properties(PythonBindings PROPERTIES
 
 # Install OpenSim libraries into the wheel
 if(PYOSIM_BUILD_WITH_OPENSIM)
+    message(STATUS "=== PYOSIM: Installing libraries into wheel ===")
+    message(STATUS "=== PYOSIM: CMAKE_SYSTEM_NAME = ${CMAKE_SYSTEM_NAME} ===")
+    message(STATUS "=== PYOSIM: OPENSIM_INSTALL_DIR = ${OPENSIM_INSTALL_DIR} ===")
     # Create lib directory in the install location
     install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
     
