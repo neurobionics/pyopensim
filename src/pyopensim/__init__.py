@@ -8,6 +8,7 @@ and simulation toolkit.
 import sys
 import os
 import ctypes
+import atexit
 
 # Get the current directory
 _curFolder = os.path.dirname(os.path.realpath(__file__))
@@ -181,3 +182,31 @@ __all__ = [
 
 # Filter out None values from __all__ (for optional modules that failed to import)
 __all__ = [item for item in __all__ if globals().get(item) is not None]
+
+# Exit handler to prevent segfaults during cleanup
+def _cleanup_opensim():
+    """Cleanup function to prevent segfaults during Python exit."""
+    try:
+        # Force garbage collection to clean up objects before static destructors
+        import gc
+        
+        # Clear globals that might hold OpenSim objects
+        global simbody, common, simulation, actuators, analyses, tools
+        global examplecomponents, moco, report
+        
+        # Clear references to potentially problematic modules
+        for name in ['simbody', 'common', 'simulation', 'actuators', 'analyses', 'tools',
+                     'examplecomponents', 'moco', 'report']:
+            if name in globals():
+                globals()[name] = None
+        
+        # Force garbage collection
+        gc.collect()
+        gc.collect()  # Call twice to handle circular references
+        
+    except:
+        pass  # Ignore any errors during cleanup
+
+# Register cleanup handler - only for test environments or when explicitly requested
+if 'pytest' in sys.modules or os.environ.get('PYOPENSIM_FORCE_EXIT_HANDLER'):
+    atexit.register(_cleanup_opensim)

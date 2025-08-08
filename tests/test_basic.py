@@ -1,6 +1,9 @@
 """
 Basic tests for pyopensim
 """
+import os
+import gc
+import sys
 
 def test_import():
     """Test that pyopensim can be imported."""
@@ -25,3 +28,11 @@ def test_opensim_model_import():
     # Test basic model operations
     model.setName("TestModel")
     assert model.getName() == "TestModel"
+    
+    # Explicit cleanup to prevent segfault on Linux
+    del model
+    
+    # Force garbage collection on Linux to clean up before exit
+    if sys.platform.startswith('linux'):
+        gc.collect()
+        gc.collect()
