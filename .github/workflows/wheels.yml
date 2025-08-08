@@ -120,9 +120,9 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ccache-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}
+          key: ccache-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-v2
           restore-keys: |
-            ccache-${{ runner.os }}-
+            ccache-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-v2
           max-size: "2G"
           verbose: 2
 
