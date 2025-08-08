@@ -173,6 +173,14 @@ jobs:
           CIBW_BEFORE_BUILD_MACOS: chmod +x ./scripts/opensim/setup_opensim_macos.sh && ./scripts/opensim/setup_opensim_macos.sh
           CIBW_BEFORE_BUILD_LINUX: chmod +x ./scripts/opensim/setup_opensim_linux.sh && ./scripts/opensim/setup_opensim_linux.sh
           CIBW_BEFORE_BUILD_WINDOWS: powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
+          CIBW_TEST_COMMAND: >
+            CACHE_DIR="$PYOSIM_HOST_CACHE_DIR" &&
+            if [ -d "$CACHE_DIR" ]; then
+              PRIORITY_DIRS=$(find "$CACHE_DIR" -path "*/opensim-install/*/lib*" -type d 2>/dev/null | tr '\n' ':' | sed 's/:$//') &&
+              BUILD_DIRS=$(find "$CACHE_DIR" -path "*/dependencies-install/*/lib*" -type d 2>/dev/null | tr '\n' ':' | sed 's/:$//') &&
+              export LD_LIBRARY_PATH="${PRIORITY_DIRS}:${BUILD_DIRS}:$LD_LIBRARY_PATH"
+            fi &&
+            pytest {project}/tests
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             echo "=== Architecture Check ===" &&
             file ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTKmath.3.8.dylib &&
