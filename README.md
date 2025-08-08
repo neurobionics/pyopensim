@@ -10,13 +10,7 @@ Portable python bindings for OpenSim with type hints
 
 ## Development
 
-### Build Caching
-
-This project uses caching to reduce OpenSim C++ compilation time from ~40 minutes to ~5 minutes for most changes.
-
-#### How Caching Works
-
-The build system caches OpenSim dependencies based on the OpenSim submodule SHA. The cache is only invalidated when the OpenSim submodule is updated to a different commit.
+This project uses caching to reduce OpenSim C++ compilation time from ~40 minutes to ~5 minutes for most changes. The build system caches OpenSim dependencies based on the OpenSim submodule SHA. The cache is only invalidated when the OpenSim submodule is updated to a different commit.
 
 **Cache Hit**: Stub files, packaging changes, or setup script modifications will reuse the cached OpenSim build.
 
