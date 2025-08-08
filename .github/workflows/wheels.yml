@@ -199,12 +199,19 @@ jobs:
               ALL_LIB_DIRS=$(find "$CACHE_DIR" -path "*/lib*" -type d 2>/dev/null | sort -u) &&
               echo "All potential library directories: $ALL_LIB_DIRS" &&
               LIB_DIRS="" &&
+              PRIORITY_DIRS="" &&
+              BUILD_DIRS="" &&
               for dir in $ALL_LIB_DIRS; do
                 if ls "$dir"/lib*.so* >/dev/null 2>&1; then
                   echo "Found libraries in: $dir" &&
-                  LIB_DIRS="$dir:$LIB_DIRS"
+                  if [[ "$dir" == *"/opensim-install/"* ]]; then
+                    PRIORITY_DIRS="$dir:$PRIORITY_DIRS"
+                  else
+                    BUILD_DIRS="$dir:$BUILD_DIRS"
+                  fi
                 fi
               done &&
+              LIB_DIRS="${PRIORITY_DIRS}${BUILD_DIRS}" &&
               if [ -n "$LIB_DIRS" ]; then
                 echo "Final library directories: $LIB_DIRS" &&
                 export LD_LIBRARY_PATH="$LIB_DIRS:$LD_LIBRARY_PATH"
