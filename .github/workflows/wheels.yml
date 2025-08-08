@@ -134,7 +134,7 @@ jobs:
           path: |
             build/opensim-workspace
             ~/.ccache
-          key: opensim-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-v4
+          key: opensim-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-${{ matrix.os }}-v5
           restore-keys: |
             opensim-${{ runner.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}-
             opensim-${{ runner.os }}-
