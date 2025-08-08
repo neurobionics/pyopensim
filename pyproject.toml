@@ -4,11 +4,11 @@ build-backend = "scikit_build_core.build"
 
 
 [project]
-name = "pyosim"
+name = "pyopensim"
 version = "0.0.1"
-description="PyOSim: Python bindings for OpenSim using SWIG"
+description="PyOpenSim: Python bindings for OpenSim using SWIG"
 readme = "README.md"
-authors = [ { name = "PyOSim Authors", email = "pyosim@example.com" } ]
+authors = [ { name = "PyOpenSim Authors", email = "pyopensim@example.com" } ]
 requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -36,7 +36,7 @@ wheel.expand-macos-universal-tags = true
 # Don't specify wheel.packages - let CMake handle the installation
 
 # Include stub files in the wheel for PEP 561 compliance
-wheel.packages = ["pyosim", "pyosim-stubs"]
+wheel.packages = ["pyopensim", "pyopensim-stubs"]
 
 
 [tool.cibuildwheel]

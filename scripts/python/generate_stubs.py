@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simplified stub generation for PyOSim using mypy's stubgen.
+Simplified stub generation for PyOpenSim using mypy's stubgen.
 This replaces the two separate generation scripts with a single streamlined approach.
 """
 
@@ -34,13 +34,13 @@ def generate_stubs_with_stubgen(package_path: Path, output_dir: Path) -> bool:
     if package_path.exists():
         sys.path.insert(0, str(package_path.parent))
     
-    # PyOSim modules to generate stubs for
+    # PyOpenSim modules to generate stubs for
     modules = ['simbody', 'common', 'simulation', 'actuators', 'analyses', 'tools']
     
     success_count = 0
     
     for module in modules:
-        module_name = f"pyosim.{module}"
+        module_name = f"pyopensim.{module}"
         print(f"Generating stubs for {module_name}...")
         
         try:
@@ -69,7 +69,7 @@ def generate_stubs_with_stubgen(package_path: Path, output_dir: Path) -> bool:
 
 def create_init_stub(output_dir: Path) -> None:
     """Create the main __init__.pyi file with proper imports and exports."""
-    init_stub_content = '''"""PyOSim: Python bindings for OpenSim."""
+    init_stub_content = '''"""PyOpenSim: Python bindings for OpenSim."""
 from typing import Any
 
 # Import all modules
@@ -101,7 +101,7 @@ __all__ = [
 ]
 '''
     
-    init_file = output_dir / "pyosim" / "__init__.pyi"
+    init_file = output_dir / "pyopensim" / "__init__.pyi"
     init_file.parent.mkdir(parents=True, exist_ok=True)
     
     with open(init_file, 'w') as f:
@@ -113,9 +113,9 @@ __all__ = [
 def main():
     """Main stub generation function."""
     if len(sys.argv) < 2:
-        print("Usage: generate_stubs_simplified.py <output_dir> [package_path]")
+        print("Usage: generate_stubs.py <output_dir> [package_path]")
         print("  output_dir: Directory where .pyi files will be created")
-        print("  package_path: Optional path to built pyosim package")
+        print("  package_path: Optional path to built pyopensim package")
         sys.exit(1)
     
     output_dir = Path(sys.argv[1])

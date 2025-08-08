@@ -1,5 +1,5 @@
 """
-PyOSim: Python bindings for OpenSim using SWIG
+PyOpenSim: Python bindings for OpenSim using SWIG
 
 This package provides Python bindings for the OpenSim biomechanical modeling
 and simulation toolkit.
@@ -37,7 +37,7 @@ else:
         except OSError as e:
             print(f"Warning: Could not preload SimTK libraries: {e}")
 
-# Make pyosim appear as opensim for SWIG module compatibility
+# Make pyopensim appear as opensim for SWIG module compatibility
 import sys
 sys.modules['opensim'] = sys.modules[__name__]
 
@@ -157,7 +157,7 @@ if os.path.exists(_geometry_path):
     except NameError:
         pass  # ModelVisualizer not available
 
-# Define what's available when using 'from pyosim import *'
+# Define what's available when using 'from pyopensim import *'
 __all__ = [
     # Core modules
     'simbody', 'common', 'simulation', 'actuators', 'analyses', 'tools',

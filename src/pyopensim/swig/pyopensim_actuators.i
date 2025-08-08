@@ -1,4 +1,4 @@
-%module(package="pyosim", directors="1") actuators
+%module(package="pyopensim", directors="1") actuators
 
 // Enable autodoc feature for better docstrings and type hints
 %feature("autodoc", "3");

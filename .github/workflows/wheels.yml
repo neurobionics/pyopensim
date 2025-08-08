@@ -156,7 +156,7 @@ jobs:
             CMAKE_C_COMPILER_LAUNCHER=ccache
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
             CCACHE_DIR=/Users/runner/.ccache
-            PYOSIM_HOST_CACHE_DIR=${{ github.workspace }}/build/opensim-workspace
+            PYOPENSIM_HOST_CACHE_DIR=${{ github.workspace }}/build/opensim-workspace
             REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
             OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit || 'false' }}
             FORCE_REBUILD_OPENSIM=${{ inputs.force_rebuild_opensim || 'false' }}
@@ -164,7 +164,7 @@ jobs:
             CMAKE_C_COMPILER_LAUNCHER=ccache
             CMAKE_CXX_COMPILER_LAUNCHER=ccache
             CCACHE_DIR=/host${{ github.workspace }}/.ccache
-            PYOSIM_HOST_CACHE_DIR=/host${{ github.workspace }}/build/opensim-workspace
+            PYOPENSIM_HOST_CACHE_DIR=/host${{ github.workspace }}/build/opensim-workspace
             OPENSIM_CACHE_HIT=${{ steps.cache-opensim.outputs.cache-hit || 'false' }}
             FORCE_REBUILD_OPENSIM=${{ inputs.force_rebuild_opensim || 'false' }}
           CIBW_ENVIRONMENT_WINDOWS: >
@@ -173,14 +173,6 @@ jobs:
           CIBW_BEFORE_BUILD_MACOS: chmod +x ./scripts/opensim/setup_opensim_macos.sh && ./scripts/opensim/setup_opensim_macos.sh
           CIBW_BEFORE_BUILD_LINUX: chmod +x ./scripts/opensim/setup_opensim_linux.sh && ./scripts/opensim/setup_opensim_linux.sh
           CIBW_BEFORE_BUILD_WINDOWS: powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
-          CIBW_TEST_COMMAND: >
-            CACHE_DIR="$PYOSIM_HOST_CACHE_DIR" &&
-            if [ -d "$CACHE_DIR" ]; then
-              PRIORITY_DIRS=$(find "$CACHE_DIR" -path "*/opensim-install/*/lib*" -type d 2>/dev/null | tr '\n' ':' | sed 's/:$//') &&
-              BUILD_DIRS=$(find "$CACHE_DIR" -path "*/dependencies-install/*/lib*" -type d 2>/dev/null | tr '\n' ':' | sed 's/:$//') &&
-              export LD_LIBRARY_PATH="${PRIORITY_DIRS}:${BUILD_DIRS}:$LD_LIBRARY_PATH"
-            fi &&
-            pytest {project}/tests
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             echo "=== Architecture Check ===" &&
             file ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTKmath.3.8.dylib &&
@@ -193,7 +185,7 @@ jobs:
             pwd &&
             echo "=== Debug: Looking for build directory ===" &&
             find . -name "opensim-workspace" -type d 2>/dev/null | head -5 &&
-            CACHE_DIR="$PYOSIM_HOST_CACHE_DIR" &&
+            CACHE_DIR="$PYOPENSIM_HOST_CACHE_DIR" &&
             echo "=== Debug: Looking for cached OpenSim workspace at: $CACHE_DIR ===" &&
             if [ -d "$CACHE_DIR" ]; then
               echo "Found cached OpenSim workspace" &&

@@ -31,7 +31,7 @@
 # demonstration.                                                          #
 # ------------------------------------------------------------------------#
 
-import pyosim as osim
+import pyopensim as osim
 
 # Define global model where the arm lives.
 arm = osim.Model()

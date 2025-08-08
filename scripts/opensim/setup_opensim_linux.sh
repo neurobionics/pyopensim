@@ -9,14 +9,14 @@ NUM_JOBS=${CMAKE_BUILD_PARALLEL_LEVEL:-4}
 OPENSIM_ROOT=$(pwd)
 
 # Handle cibuildwheel container environment - use host-mapped cache if available
-if [ -n "$PYOSIM_HOST_CACHE_DIR" ]; then
+if [ -n "$PYOPENSIM_HOST_CACHE_DIR" ]; then
     echo "🐳 Detected cibuildwheel container environment"
-    echo "   Host cache directory: $PYOSIM_HOST_CACHE_DIR"
+    echo "   Host cache directory: $PYOPENSIM_HOST_CACHE_DIR"
     
     # Validate that host filesystem is accessible  
     echo "   🔍 Checking host filesystem access:"
-    echo "      Parent dir: $(dirname "$PYOSIM_HOST_CACHE_DIR")"
-    echo "      Parent exists: $([ -d "$(dirname "$PYOSIM_HOST_CACHE_DIR")" ] && echo "YES" || echo "NO")"
+    echo "      Parent dir: $(dirname "$PYOPENSIM_HOST_CACHE_DIR")"
+    echo "      Parent exists: $([ -d "$(dirname "$PYOPENSIM_HOST_CACHE_DIR")" ] && echo "YES" || echo "NO")"
     echo "      Host root accessible: $([ -d "/host" ] && echo "YES" || echo "NO")"
     echo "      /host contents: $(ls -la /host 2>/dev/null | head -3 || echo "NONE")"
     
@@ -24,14 +24,14 @@ if [ -n "$PYOSIM_HOST_CACHE_DIR" ]; then
     if [ -d "/host" ]; then
         echo "   📁 Host filesystem is accessible, attempting to create cache directory..."
         # Create parent directories first
-        if mkdir -p "$PYOSIM_HOST_CACHE_DIR" 2>/dev/null; then
-            WORKSPACE_DIR="$PYOSIM_HOST_CACHE_DIR"
+        if mkdir -p "$PYOPENSIM_HOST_CACHE_DIR" 2>/dev/null; then
+            WORKSPACE_DIR="$PYOPENSIM_HOST_CACHE_DIR"
             echo "   ✅ Using host-mapped cache: $WORKSPACE_DIR"
             
             # Create local symlink for easier access
             mkdir -p "$OPENSIM_ROOT/build"
             if [ ! -L "$OPENSIM_ROOT/build/opensim-workspace" ]; then
-                ln -sf "$PYOSIM_HOST_CACHE_DIR" "$OPENSIM_ROOT/build/opensim-workspace"
+                ln -sf "$PYOPENSIM_HOST_CACHE_DIR" "$OPENSIM_ROOT/build/opensim-workspace"
                 echo "   📁 Created symlink: build/opensim-workspace -> host cache"
             fi
         else

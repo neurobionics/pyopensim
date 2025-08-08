@@ -1,4 +1,4 @@
-# pyosim
+# pyopensim
 Portable python bindings for OpenSim with type hints
 
 ## Key Features

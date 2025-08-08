@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15...3.27)
-project(pyosim VERSION "0.0.1")
+project(pyopensim VERSION "0.0.1")
 
 # Set C++ standard to 14 (required by OpenSim)
 set(CMAKE_CXX_STANDARD 14)
@@ -125,13 +125,13 @@ if(WIN32 AND MSVC)
 endif()
 
 # Options for OpenSim integration
-option(PYOSIM_BUILD_WITH_OPENSIM "Build with OpenSim support" ON)
-option(PYOSIM_USE_SYSTEM_OPENSIM "Use system-installed OpenSim if available" OFF)
+option(PYOPENSIM_BUILD_WITH_OPENSIM "Build with OpenSim support" ON)
+option(PYOPENSIM_USE_SYSTEM_OPENSIM "Use system-installed OpenSim if available" OFF)
 
-if(PYOSIM_BUILD_WITH_OPENSIM)
+if(PYOPENSIM_BUILD_WITH_OPENSIM)
     # Try to find system OpenSim first if requested
     set(OPENSIM_FOUND FALSE)
-    if(PYOSIM_USE_SYSTEM_OPENSIM)
+    if(PYOPENSIM_USE_SYSTEM_OPENSIM)
         find_package(OpenSim QUIET)
         if(OpenSim_FOUND)
             message(STATUS "Found system OpenSim installation")
@@ -254,7 +254,7 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
         endif()
     endif() # Close if(NOT OPENSIM_FOUND)
 else()
-    message(STATUS "Building PyOSim stubs without OpenSim")
+    message(STATUS "Building PyOpenSim stubs without OpenSim")
 endif()
 
 # ==============================================================================
@@ -293,7 +293,7 @@ macro(OpenSimPutFileInPythonPackage source_full_path relative_dest_dir)
     # Python package in the installation.
     # -----------------------------------
     install(FILES "${source_full_path}"
-        DESTINATION "${CMAKE_INSTALL_PREFIX}/pyosim/${relative_dest_dir}")
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/pyopensim/${relative_dest_dir}")
 endmacro()
 
 # Set SWIG options
@@ -317,7 +317,7 @@ macro(OpenSimAddPythonModule)
     set(_output_cxx_file "${_output_file_prefix}.cxx")
     set(_output_header_file "${_output_file_prefix}.h")
     set(_interface_file
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/pyosim/swig/pyosim_${OSIMSWIGPY_MODULE}.i")
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/pyopensim/swig/pyopensim_${OSIMSWIGPY_MODULE}.i")
 
     # SWIG command arguments
     set(_swig_common_args -c++ -python
@@ -393,7 +393,7 @@ macro(OpenSimAddPythonModule)
     endif()
 
     # Link against OpenSim libraries
-    if(PYOSIM_BUILD_WITH_OPENSIM)
+    if(PYOPENSIM_BUILD_WITH_OPENSIM)
         # Platform-specific library paths
         if(WIN32)
             # Windows: OpenSim libraries in lib/, Simbody libraries in sdk/Simbody/lib/
@@ -499,17 +499,17 @@ macro(OpenSimAddPythonModule)
     # Copy files into the build tree python package.
     add_custom_command(TARGET ${_libname} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${_libname}>"
-            "${OPENSIM_PYTHON_BINARY_DIR}/pyosim/$<TARGET_FILE_NAME:${_libname}>"
+            "${OPENSIM_PYTHON_BINARY_DIR}/pyopensim/$<TARGET_FILE_NAME:${_libname}>"
         COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_BINARY_DIR}/${OSIMSWIGPY_MODULE}.py"
-            "${OPENSIM_PYTHON_BINARY_DIR}/pyosim/${OSIMSWIGPY_MODULE}.py"
+            "${OPENSIM_PYTHON_BINARY_DIR}/pyopensim/${OSIMSWIGPY_MODULE}.py"
         COMMENT "Copying ${OSIMSWIGPY_MODULE}.py and ${_libname} to python package in build directory."
         VERBATIM
         )
 
     # Install the python module and compiled library.
-    install(TARGETS ${_libname} DESTINATION "${CMAKE_INSTALL_PREFIX}/pyosim")
+    install(TARGETS ${_libname} DESTINATION "${CMAKE_INSTALL_PREFIX}/pyopensim")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${OSIMSWIGPY_MODULE}.py"
-        DESTINATION "${CMAKE_INSTALL_PREFIX}/pyosim")
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/pyopensim")
 
 endmacro()
 
@@ -527,18 +527,18 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/opensim-core/Bindings/Python/vers
     "${CMAKE_CURRENT_BINARY_DIR}/version.py" @ONLY)
 
 # Copy the configured version.py for each build configuration.
-OpenSimPutFileInPythonPackage("${CMAKE_CURRENT_BINARY_DIR}/version.py" pyosim)
+OpenSimPutFileInPythonPackage("${CMAKE_CURRENT_BINARY_DIR}/version.py" pyopensim)
 
-# __init__.py - use our custom pyosim __init__.py instead of OpenSim's
-OpenSimPutFileInPythonPackage("${CMAKE_CURRENT_SOURCE_DIR}/src/pyosim/__init__.py" .)
+# __init__.py - use our custom pyopensim __init__.py instead of OpenSim's
+OpenSimPutFileInPythonPackage("${CMAKE_CURRENT_SOURCE_DIR}/src/pyopensim/__init__.py" .)
 
 # py.typed marker file for PEP 561 compliance
-OpenSimPutFileInPythonPackage("${CMAKE_CURRENT_SOURCE_DIR}/src/pyosim/py.typed" .)
+OpenSimPutFileInPythonPackage("${CMAKE_CURRENT_SOURCE_DIR}/src/pyopensim/py.typed" .)
 
 # Generate stub files for IDE support
 set(STUB_FILES_DIR "${CMAKE_CURRENT_BINARY_DIR}/stubs")
 add_custom_command(
-    OUTPUT "${STUB_FILES_DIR}/pyosim/__init__.pyi"
+    OUTPUT "${STUB_FILES_DIR}/pyopensim/__init__.pyi"
     DEPENDS ${OPENSIM_PYTHON_PACKAGE_LIBRARY_TARGETS}
     COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/scripts/python/generate_stubs.py"
         "${OPENSIM_PYTHON_BINARY_DIR}"
@@ -549,16 +549,16 @@ add_custom_command(
 
 # Copy stub files to the python package directory
 add_custom_command(
-    OUTPUT "${OPENSIM_PYTHON_BINARY_DIR}/pyosim-stubs"
-    DEPENDS "${STUB_FILES_DIR}/pyosim/__init__.pyi"
+    OUTPUT "${OPENSIM_PYTHON_BINARY_DIR}/pyopensim-stubs"
+    DEPENDS "${STUB_FILES_DIR}/pyopensim/__init__.pyi"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${STUB_FILES_DIR}/pyosim"
-        "${OPENSIM_PYTHON_BINARY_DIR}/pyosim-stubs"
+        "${STUB_FILES_DIR}/pyopensim"
+        "${OPENSIM_PYTHON_BINARY_DIR}/pyopensim-stubs"
     COMMENT "Copying stub files to package directory"
 )
 
 # Umbrella target for assembling the python bindings in the build tree.
-add_custom_target(PythonBindings ALL DEPENDS ${OPENSIM_PYTHON_PACKAGE_FILES} "${OPENSIM_PYTHON_BINARY_DIR}/pyosim-stubs")
+add_custom_target(PythonBindings ALL DEPENDS ${OPENSIM_PYTHON_PACKAGE_FILES} "${OPENSIM_PYTHON_BINARY_DIR}/pyopensim-stubs")
 
 # Require the libraries to be built.
 add_dependencies(PythonBindings ${OPENSIM_PYTHON_PACKAGE_LIBRARY_TARGETS})
@@ -568,12 +568,12 @@ set_target_properties(PythonBindings PROPERTIES
     FOLDER "Bindings")
 
 # Install OpenSim libraries into the wheel
-if(PYOSIM_BUILD_WITH_OPENSIM)
-    message(STATUS "=== PYOSIM: Installing libraries into wheel ===")
-    message(STATUS "=== PYOSIM: CMAKE_SYSTEM_NAME = ${CMAKE_SYSTEM_NAME} ===")
-    message(STATUS "=== PYOSIM: OPENSIM_INSTALL_DIR = ${OPENSIM_INSTALL_DIR} ===")
+if(PYOPENSIM_BUILD_WITH_OPENSIM)
+    message(STATUS "=== PYOPENSIM: Installing libraries into wheel ===")
+    message(STATUS "=== PYOPENSIM: CMAKE_SYSTEM_NAME = ${CMAKE_SYSTEM_NAME} ===")
+    message(STATUS "=== PYOPENSIM: OPENSIM_INSTALL_DIR = ${OPENSIM_INSTALL_DIR} ===")
     # Create lib directory in the install location
-    install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+    install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
     
     # Install OpenSim libraries - platform specific paths
     if(WIN32)
@@ -606,7 +606,7 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
     
     foreach(LIB ${INSTALL_LIBS})
         if(EXISTS "${LIB}")
-            install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+            install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
         endif()
     endforeach()
     
@@ -614,7 +614,7 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
     if(WIN32 AND INSTALL_DLLS)
         foreach(DLL ${INSTALL_DLLS})
             if(EXISTS "${DLL}")
-                install(FILES "${DLL}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+                install(FILES "${DLL}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
             endif()
         endforeach()
     endif()
@@ -634,12 +634,12 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
         )
         foreach(LIB ${SIMBODY_LIBS})
             if(EXISTS "${LIB}")
-                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
             endif()
         endforeach()
         foreach(DLL ${SIMBODY_DLLS})
             if(EXISTS "${DLL}")
-                install(FILES "${DLL}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+                install(FILES "${DLL}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
             endif()
         endforeach()
     elseif(APPLE)
@@ -671,7 +671,7 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
         message(STATUS "Found SimTK libraries in OpenSim install: ${SIMBODY_ALL_LIBS}")
         if(SIMBODY_ALL_LIBS)
             install(FILES ${SIMBODY_ALL_LIBS}
-                DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
         endif()
         
         # Also check dependencies directory for any additional SimTK libraries
@@ -681,7 +681,7 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
         message(STATUS "Found SimTK libraries in dependencies: ${SIMBODY_DEPS_LIBS}")
         if(SIMBODY_DEPS_LIBS)
             install(FILES ${SIMBODY_DEPS_LIBS}
-                DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
         endif()
         
         # Additional search in case libraries are in different locations
@@ -697,7 +697,7 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
             list(FIND SIMBODY_DEPS_LIBS "${LIB}" FOUND_IN_DEPS)
             if(FOUND_IN_INSTALL EQUAL -1 AND FOUND_IN_DEPS EQUAL -1)
                 message(STATUS "Installing additional SimTK library: ${LIB}")
-                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
             endif()
         endforeach()
         message(STATUS "=== END DEBUG ===")
@@ -712,7 +712,7 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
         foreach(LIB ${REQUIRED_VERSIONED_LIBS})
             if(EXISTS "${LIB}")
                 message(STATUS "FOUND required versioned library: ${LIB}")
-                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
             else()
                 message(STATUS "MISSING required versioned library: ${LIB}")
             endif()
@@ -745,7 +745,7 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
             # Install all found libraries (both versioned and symlinks)
             foreach(LIB ${SIMBODY_ALL_LIBS})
                 message(STATUS "Installing SimTK library: ${LIB}")
-                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
             endforeach()
         else()
             message(WARNING "No SimTK libraries found in any search paths: ${SIMBODY_SEARCH_PATHS}")
@@ -759,7 +759,7 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
             message(STATUS "Found additional SimTK libraries in dependencies: ${DEPS_SIMBODY_LIBS}")
             foreach(LIB ${DEPS_SIMBODY_LIBS})
                 message(STATUS "Installing dependency SimTK library: ${LIB}")
-                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+                install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
             endforeach()
         endif()
     endif()
@@ -786,7 +786,7 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
     
     foreach(LIB ${OPTIONAL_INSTALL_LIBS})
         if(EXISTS "${LIB}")
-            install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+            install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
         endif()
     endforeach()
     
@@ -794,13 +794,13 @@ if(PYOSIM_BUILD_WITH_OPENSIM)
     if(WIN32 AND OPTIONAL_INSTALL_DLLS)
         foreach(DLL ${OPTIONAL_INSTALL_DLLS})
             if(EXISTS "${DLL}")
-                install(FILES "${DLL}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyosim/lib)
+                install(FILES "${DLL}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
             endif()
         endforeach()
     endif()
 endif()
 
 # Install stub files for IDE support
-install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/stubs/pyosim/"
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/pyosim-stubs"
+install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/stubs/pyopensim/"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/pyopensim-stubs"
     FILES_MATCHING PATTERN "*.pyi")

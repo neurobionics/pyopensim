@@ -9,21 +9,21 @@ NUM_JOBS=${CMAKE_BUILD_PARALLEL_LEVEL:-4}
 OPENSIM_ROOT=$(pwd)
 
 # Handle cibuildwheel container environment - use host-mapped cache if available
-if [ -n "$PYOSIM_HOST_CACHE_DIR" ]; then
+if [ -n "$PYOPENSIM_HOST_CACHE_DIR" ]; then
     echo "🐳 Detected cibuildwheel container environment"
-    echo "   Host cache directory: $PYOSIM_HOST_CACHE_DIR"
+    echo "   Host cache directory: $PYOPENSIM_HOST_CACHE_DIR"
     
     # Validate that host filesystem is accessible
-    if [ -d "$(dirname "$PYOSIM_HOST_CACHE_DIR")" ]; then
+    if [ -d "$(dirname "$PYOPENSIM_HOST_CACHE_DIR")" ]; then
         # Create cache directory if it doesn't exist
-        mkdir -p "$PYOSIM_HOST_CACHE_DIR"
-        WORKSPACE_DIR="$PYOSIM_HOST_CACHE_DIR"
+        mkdir -p "$PYOPENSIM_HOST_CACHE_DIR"
+        WORKSPACE_DIR="$PYOPENSIM_HOST_CACHE_DIR"
         echo "   ✅ Using host-mapped cache: $WORKSPACE_DIR"
         
         # Create local symlink for easier access
         mkdir -p "$OPENSIM_ROOT/build"
         if [ ! -L "$OPENSIM_ROOT/build/opensim-workspace" ]; then
-            ln -sf "$PYOSIM_HOST_CACHE_DIR" "$OPENSIM_ROOT/build/opensim-workspace"
+            ln -sf "$PYOPENSIM_HOST_CACHE_DIR" "$OPENSIM_ROOT/build/opensim-workspace"
             echo "   📁 Created symlink: build/opensim-workspace -> host cache"
         fi
     else
@@ -260,8 +260,8 @@ MISSING_PYTHON_PACKAGES=()
 if [[ -n "${VIRTUAL_ENV}" && -x "${VIRTUAL_ENV}/bin/python3" ]]; then
     PYTHON_EXEC="${VIRTUAL_ENV}/bin/python3"
     echo "Using virtual environment Python: $PYTHON_EXEC"
-elif [[ -x "/Users/holycow/Projects/pyosim/.venv/bin/python3" ]]; then
-    PYTHON_EXEC="/Users/holycow/Projects/pyosim/.venv/bin/python3"
+elif [[ -x "/Users/holycow/Projects/pyopensim/.venv/bin/python3" ]]; then
+    PYTHON_EXEC="/Users/holycow/Projects/pyopensim/.venv/bin/python3"
     echo "Using project virtual environment Python: $PYTHON_EXEC"
 else
     PYTHON_EXEC="python3"
