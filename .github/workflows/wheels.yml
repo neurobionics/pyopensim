@@ -185,7 +185,7 @@ jobs:
             pwd &&
             echo "=== Debug: Looking for build directory ===" &&
             find . -name "opensim-workspace" -type d 2>/dev/null | head -5 &&
-            CACHE_DIR="/host$PYOSIM_HOST_CACHE_DIR" &&
+            CACHE_DIR="$PYOSIM_HOST_CACHE_DIR" &&
             echo "=== Debug: Looking for cached OpenSim workspace at: $CACHE_DIR ===" &&
             if [ -d "$CACHE_DIR" ]; then
               echo "Found cached OpenSim workspace" &&
