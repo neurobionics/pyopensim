@@ -8,43 +8,7 @@ DEBUG_TYPE=${CMAKE_BUILD_TYPE:-Release}
 NUM_JOBS=${CMAKE_BUILD_PARALLEL_LEVEL:-4}
 OPENSIM_ROOT=$(pwd)
 
-# Handle cibuildwheel container environment - use host-mapped cache if available
-if [ -n "$PYOPENSIM_HOST_CACHE_DIR" ]; then
-    echo "🐳 Detected cibuildwheel container environment"
-    echo "   Host cache directory: $PYOPENSIM_HOST_CACHE_DIR"
-    
-    # Validate that host filesystem is accessible  
-    echo "   🔍 Checking host filesystem access:"
-    echo "      Parent dir: $(dirname "$PYOPENSIM_HOST_CACHE_DIR")"
-    echo "      Parent exists: $([ -d "$(dirname "$PYOPENSIM_HOST_CACHE_DIR")" ] && echo "YES" || echo "NO")"
-    echo "      Host root accessible: $([ -d "/host" ] && echo "YES" || echo "NO")"
-    echo "      /host contents: $(ls -la /host 2>/dev/null | head -3 || echo "NONE")"
-    
-    # Check if /host is accessible - if so, we can create the cache directory
-    if [ -d "/host" ]; then
-        echo "   📁 Host filesystem is accessible, attempting to create cache directory..."
-        # Create parent directories first
-        if mkdir -p "$PYOPENSIM_HOST_CACHE_DIR" 2>/dev/null; then
-            WORKSPACE_DIR="$PYOPENSIM_HOST_CACHE_DIR"
-            echo "   ✅ Using host-mapped cache: $WORKSPACE_DIR"
-            
-            # Create local symlink for easier access
-            mkdir -p "$OPENSIM_ROOT/build"
-            if [ ! -L "$OPENSIM_ROOT/build/opensim-workspace" ]; then
-                ln -sf "$PYOPENSIM_HOST_CACHE_DIR" "$OPENSIM_ROOT/build/opensim-workspace"
-                echo "   📁 Created symlink: build/opensim-workspace -> host cache"
-            fi
-        else
-            echo "   ⚠️  Failed to create host cache directory, falling back to container-local cache"
-            WORKSPACE_DIR="$OPENSIM_ROOT/build/opensim-workspace"
-        fi
-    else
-        echo "   ⚠️  Host filesystem not accessible, falling back to container-local cache"
-        WORKSPACE_DIR="$OPENSIM_ROOT/build/opensim-workspace"
-    fi
-else
-    WORKSPACE_DIR="$OPENSIM_ROOT/build/opensim-workspace"
-fi
+WORKSPACE_DIR="$OPENSIM_ROOT/build/opensim-workspace"
 
 # Parse command line arguments
 DEPS_ONLY=false
@@ -99,65 +63,7 @@ fi
 # Create workspace
 mkdir -p "$WORKSPACE_DIR"
 
-# Cache validation with smart dependency detection  
-OPENSIM_COMMIT_HASH=""
-echo "🔍 Detecting OpenSim commit hash..."
-echo "   Git repo check: $([ -d "$OPENSIM_ROOT/src/opensim-core/.git" ] && echo "EXISTS" || echo "MISSING")"
-echo "   Submodule dir: $([ -d "$OPENSIM_ROOT/src/opensim-core" ] && echo "EXISTS" || echo "MISSING")"
-if [ -d "$OPENSIM_ROOT/src/opensim-core/.git" ]; then
-    OPENSIM_COMMIT_HASH=$(git -C "$OPENSIM_ROOT/src/opensim-core" rev-parse HEAD 2>/dev/null || echo "unknown")
-elif [ -d "$OPENSIM_ROOT/src/opensim-core" ]; then
-    # Try alternative methods in case .git is not a directory (could be a gitfile)  
-    OPENSIM_COMMIT_HASH=$(cd "$OPENSIM_ROOT/src/opensim-core" && git rev-parse HEAD 2>/dev/null || echo "unknown")
-fi
-echo "   Detected commit: ${OPENSIM_COMMIT_HASH}"
-
-CACHE_MARKER="$WORKSPACE_DIR/.opensim_build_complete_${OPENSIM_COMMIT_HASH}"
-
-echo "🔍 Checking for existing OpenSim build cache..."
-echo "   Cache marker: $CACHE_MARKER"
-echo "   OPENSIM_CACHE_HIT: ${OPENSIM_CACHE_HIT:-unset}"
-echo "   Workspace directory: $WORKSPACE_DIR"
-if [ "$FORCE_REBUILD_OPENSIM" = "true" ]; then
-    echo "⚠ Force rebuild requested, bypassing all caches"
-    rm -f "$CACHE_MARKER"
-elif [ "$OPENSIM_CACHE_HIT" = "true" ] && [ -f "$CACHE_MARKER" ] && [ -f "$WORKSPACE_DIR/opensim-install/lib/libosimCommon.so" ]; then
-    echo "✓ OpenSim build cache is valid (commit: ${OPENSIM_COMMIT_HASH:0:8}), skipping rebuild"
-    echo "Cache marker found: $CACHE_MARKER"
-    
-    # Ensure SWIG is still in PATH for subsequent builds
-    if [ -d "$HOME/swig/bin" ]; then
-        export PATH="$HOME/swig/bin:$PATH"
-        echo "SWIG path restored from cache"
-    elif [ -d "$WORKSPACE_DIR/swig-install/bin" ]; then
-        export PATH="$WORKSPACE_DIR/swig-install/bin:$PATH"
-        echo "SWIG path restored from workspace cache"
-    fi
-    
-    exit 0
-fi
-
-echo "Cache miss, proceeding with OpenSim build..."
-if [ -n "$OPENSIM_COMMIT_HASH" ] && [ "$OPENSIM_COMMIT_HASH" != "unknown" ]; then
-    echo "Building for OpenSim commit: ${OPENSIM_COMMIT_HASH:0:8}"
-fi
-
-# Smart dependency detection - check if we can skip SWIG/deps rebuild
-SKIP_DEPS=false
-if [ "$OPENSIM_CACHE_HIT" = "true" ]; then
-    if [ -d "$WORKSPACE_DIR/swig-install/bin" ] || [ -d "$HOME/swig/bin" ]; then
-        if [ -d "$WORKSPACE_DIR/dependencies-install" ]; then
-            echo "✓ Partial cache hit - SWIG and dependencies available, skipping deps build"
-            SKIP_DEPS=true
-            # Restore SWIG to PATH
-            if [ -d "$HOME/swig/bin" ]; then
-                export PATH="$HOME/swig/bin:$PATH"
-            elif [ -d "$WORKSPACE_DIR/swig-install/bin" ]; then
-                export PATH="$WORKSPACE_DIR/swig-install/bin:$PATH"
-            fi
-        fi
-    fi
-fi
+echo "Building OpenSim from scratch..."
 
 # Check system dependencies
 echo "Checking system dependencies..."
@@ -189,7 +95,6 @@ if command -v apk >/dev/null 2>&1; then
         "bison"
         "byacc"
         "linux-headers"
-        "ccache"
     )
 elif command -v dnf >/dev/null 2>&1; then
     echo "Detected modern RHEL/AlmaLinux (manylinux_2_28+) with dnf"
@@ -216,7 +121,6 @@ elif command -v dnf >/dev/null 2>&1; then
         "wget"
         "bison"
         "byacc"
-        "ccache"
     )
 elif command -v yum >/dev/null 2>&1; then
     echo "Detected legacy RHEL/CentOS (manylinux2014) with yum"
@@ -243,7 +147,6 @@ elif command -v yum >/dev/null 2>&1; then
         "wget"
         "bison"
         "byacc"
-        "ccache"
     )
 elif command -v apt-get >/dev/null 2>&1; then
     echo "Detected Debian/Ubuntu environment with apt"
@@ -274,7 +177,6 @@ elif command -v apt-get >/dev/null 2>&1; then
         "wget"
         "bison"
         "byacc"
-        "ccache"
     )
 else
     echo "Warning: No supported package manager found (apk/dnf/yum/apt-get)"
@@ -372,54 +274,41 @@ if [ "$DEPS_ONLY" = true ]; then
     exit 0
 fi
 
-# Skip dependencies build if we have a cache hit
-if [ "$SKIP_DEPS" = "false" ]; then
-    # Download and install SWIG 4.1.1
-    echo "Installing SWIG 4.1.1..."
-    mkdir -p "$WORKSPACE_DIR/swig-source" && cd "$WORKSPACE_DIR/swig-source"
-    if [ ! -f "v4.1.1.tar.gz" ]; then
-        # Try wget first, fallback to curl if not available
-        if command -v wget >/dev/null 2>&1; then
-            wget -q --show-progress https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
-        elif command -v curl >/dev/null 2>&1; then
-            curl -L -o v4.1.1.tar.gz https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
-        else
-            echo "Error: Neither wget nor curl is available for downloading SWIG"
-            exit 1
-        fi
-    fi
-    if [ ! -d "swig-4.1.1" ]; then
-        tar xzf v4.1.1.tar.gz
-    fi
-    cd swig-4.1.1
-    if [ ! -f "configure" ]; then
-        sh autogen.sh
-    fi
-    if [ ! -f "Makefile" ]; then
-            ./configure --prefix="$HOME/swig" --disable-ccache
-    fi
-    make -j$NUM_JOBS && make install
-    echo "SWIG installation complete."
-
-    # Add SWIG to PATH for the rest of the script
-    export PATH="$HOME/swig/bin:$PATH"
-
-    # Build OpenSim dependencies
-    echo "Building OpenSim dependencies..."
-    mkdir -p "$WORKSPACE_DIR/dependencies-build"
-    cd "$WORKSPACE_DIR/dependencies-build"
-
-    cmake "$OPENSIM_ROOT/src/opensim-core/dependencies" \
-        -DCMAKE_INSTALL_PREFIX="$WORKSPACE_DIR/dependencies-install" \
-        -DCMAKE_BUILD_TYPE=$DEBUG_TYPE \
-        -DSUPERBUILD_ezc3d=ON \
-        -DOPENSIM_WITH_CASADI=OFF
-
-    cmake --build . --config $DEBUG_TYPE -j$NUM_JOBS
-    echo "✓ Dependencies build complete"
+# Download and install SWIG 4.1.1
+echo "Installing SWIG 4.1.1..."
+mkdir -p "$WORKSPACE_DIR/swig-source" && cd "$WORKSPACE_DIR/swig-source"
+# Try wget first, fallback to curl if not available
+if command -v wget >/dev/null 2>&1; then
+    wget -q --show-progress https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
+elif command -v curl >/dev/null 2>&1; then
+    curl -L -o v4.1.1.tar.gz https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
 else
-    echo "⚡ Skipping dependencies build (using cached version)"
+    echo "Error: Neither wget nor curl is available for downloading SWIG"
+    exit 1
 fi
+tar xzf v4.1.1.tar.gz
+cd swig-4.1.1
+sh autogen.sh
+./configure --prefix="$HOME/swig"
+make -j$NUM_JOBS && make install
+echo "SWIG installation complete."
+
+# Add SWIG to PATH for the rest of the script
+export PATH="$HOME/swig/bin:$PATH"
+
+# Build OpenSim dependencies
+echo "Building OpenSim dependencies..."
+mkdir -p "$WORKSPACE_DIR/dependencies-build"
+cd "$WORKSPACE_DIR/dependencies-build"
+
+cmake "$OPENSIM_ROOT/src/opensim-core/dependencies" \
+    -DCMAKE_INSTALL_PREFIX="$WORKSPACE_DIR/dependencies-install" \
+    -DCMAKE_BUILD_TYPE=$DEBUG_TYPE \
+    -DSUPERBUILD_ezc3d=ON \
+    -DOPENSIM_WITH_CASADI=OFF
+
+cmake --build . --config $DEBUG_TYPE -j$NUM_JOBS
+echo "✓ Dependencies build complete"
 
 # Build OpenSim core
 echo "Building OpenSim core..."
@@ -441,10 +330,5 @@ cmake "$OPENSIM_ROOT/src/opensim-core" \
 cmake --build . --config $DEBUG_TYPE -j$NUM_JOBS
 cmake --install .
 
-# Create cache completion marker
-if [ -n "$OPENSIM_COMMIT_HASH" ] && [ "$OPENSIM_COMMIT_HASH" != "unknown" ]; then
-    touch "$CACHE_MARKER"
-    echo "✓ Cache marker created: $CACHE_MARKER"
-fi
 
 echo "OpenSim setup complete. Libraries installed in: $WORKSPACE_DIR/opensim-install"

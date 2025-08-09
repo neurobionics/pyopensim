@@ -216,28 +216,14 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
             endif()
         endforeach()
         
-        # Also check for a completion marker file to ensure full build completed
-        set(OPENSIM_BUILD_COMPLETE_MARKER "${OPENSIM_WORKSPACE}/.opensim_build_complete")
-        
         # Check for OpenSim installation completion
         set(OPENSIM_BUILD_NEEDED FALSE)
         
         if(OPENSIM_LIBS_MISSING)
             message(STATUS "OpenSim libraries missing")
             set(OPENSIM_BUILD_NEEDED TRUE)
-        elseif(NOT EXISTS "${OPENSIM_BUILD_COMPLETE_MARKER}")
-            message(STATUS "OpenSim build completion marker missing")
-            set(OPENSIM_BUILD_NEEDED TRUE)
         else()
-            # Additional validation: check marker file age vs script modification
-            file(TIMESTAMP "${OPENSIM_BUILD_COMPLETE_MARKER}" MARKER_TIME)
-            file(TIMESTAMP "${SETUP_SCRIPT}" SCRIPT_TIME)
-            if(SCRIPT_TIME STRGREATER MARKER_TIME)
-                message(STATUS "OpenSim setup script newer than completion marker")
-                set(OPENSIM_BUILD_NEEDED TRUE)
-            else()
-                message(STATUS "Found complete and up-to-date OpenSim installation")
-            endif()
+            message(STATUS "Found OpenSim installation")
         endif()
         
         # Only run setup if actually needed
@@ -261,9 +247,6 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
                 message(FATAL_ERROR "OpenSim setup failed with code ${SETUP_RESULT}")
             endif()
             
-            # Create completion marker after successful setup
-            string(TIMESTAMP CURRENT_TIME "%Y-%m-%d %H:%M:%S UTC" UTC)
-            file(WRITE "${OPENSIM_BUILD_COMPLETE_MARKER}" "OpenSim build completed at: ${CURRENT_TIME}\nSetup script: ${SETUP_SCRIPT}\n")
             message(STATUS "OpenSim setup completed successfully")
         endif()
     endif() # Close if(NOT OPENSIM_FOUND)

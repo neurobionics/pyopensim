@@ -8,31 +8,7 @@ DEBUG_TYPE=${CMAKE_BUILD_TYPE:-Release}
 NUM_JOBS=${CMAKE_BUILD_PARALLEL_LEVEL:-4}
 OPENSIM_ROOT=$(pwd)
 
-# Handle cibuildwheel container environment - use host-mapped cache if available
-if [ -n "$PYOPENSIM_HOST_CACHE_DIR" ]; then
-    echo "🐳 Detected cibuildwheel container environment"
-    echo "   Host cache directory: $PYOPENSIM_HOST_CACHE_DIR"
-    
-    # Validate that host filesystem is accessible
-    if [ -d "$(dirname "$PYOPENSIM_HOST_CACHE_DIR")" ]; then
-        # Create cache directory if it doesn't exist
-        mkdir -p "$PYOPENSIM_HOST_CACHE_DIR"
-        WORKSPACE_DIR="$PYOPENSIM_HOST_CACHE_DIR"
-        echo "   ✅ Using host-mapped cache: $WORKSPACE_DIR"
-        
-        # Create local symlink for easier access
-        mkdir -p "$OPENSIM_ROOT/build"
-        if [ ! -L "$OPENSIM_ROOT/build/opensim-workspace" ]; then
-            ln -sf "$PYOPENSIM_HOST_CACHE_DIR" "$OPENSIM_ROOT/build/opensim-workspace"
-            echo "   📁 Created symlink: build/opensim-workspace -> host cache"
-        fi
-    else
-        echo "   ⚠️  Host filesystem not accessible, falling back to container-local cache"
-        WORKSPACE_DIR="$OPENSIM_ROOT/build/opensim-workspace"
-    fi
-else
-    WORKSPACE_DIR="$OPENSIM_ROOT/build/opensim-workspace"
-fi
+WORKSPACE_DIR="$OPENSIM_ROOT/build/opensim-workspace"
 
 echo "Setting up OpenSim with build type: $DEBUG_TYPE using $NUM_JOBS jobs"
 
@@ -121,58 +97,7 @@ echo
 # Create workspace
 mkdir -p "$WORKSPACE_DIR"
 
-# Cache validation with smart dependency detection
-OPENSIM_COMMIT_HASH=""
-if [ -d "$OPENSIM_ROOT/src/opensim-core/.git" ]; then
-    OPENSIM_COMMIT_HASH=$(git -C "$OPENSIM_ROOT/src/opensim-core" rev-parse HEAD 2>/dev/null || echo "unknown")
-fi
-
-CACHE_MARKER="$WORKSPACE_DIR/.opensim_build_complete_${OPENSIM_COMMIT_HASH}"
-
-echo "🔍 Checking for existing OpenSim build cache..."
-echo "   Cache marker: $CACHE_MARKER"
-echo "   OPENSIM_CACHE_HIT: ${OPENSIM_CACHE_HIT:-unset}"
-echo "   Workspace directory: $WORKSPACE_DIR"
-if [ "$FORCE_REBUILD_OPENSIM" = "true" ]; then
-    echo "⚠ Force rebuild requested, bypassing all caches"
-    rm -f "$CACHE_MARKER"
-elif [ "$OPENSIM_CACHE_HIT" = "true" ] && [ -f "$CACHE_MARKER" ] && [ -f "$WORKSPACE_DIR/opensim-install/lib/libosimCommon.dylib" ]; then
-    echo "✓ OpenSim build cache is valid (commit: ${OPENSIM_COMMIT_HASH:0:8}), skipping rebuild"
-    echo "Cache marker found: $CACHE_MARKER"
-    
-    # Ensure SWIG is still in PATH for subsequent builds
-    if [ -d "$HOME/swig/bin" ]; then
-        export PATH="$HOME/swig/bin:$PATH"
-        echo "SWIG path restored from cache"
-    elif [ -d "$WORKSPACE_DIR/swig-install/bin" ]; then
-        export PATH="$WORKSPACE_DIR/swig-install/bin:$PATH"
-        echo "SWIG path restored from workspace cache"
-    fi
-    
-    exit 0
-fi
-
-echo "Cache miss, proceeding with OpenSim build..."
-if [ -n "$OPENSIM_COMMIT_HASH" ] && [ "$OPENSIM_COMMIT_HASH" != "unknown" ]; then
-    echo "Building for OpenSim commit: ${OPENSIM_COMMIT_HASH:0:8}"
-fi
-
-# Smart dependency detection - check if we can skip SWIG/deps rebuild  
-SKIP_DEPS=false
-if [ "$OPENSIM_CACHE_HIT" = "true" ]; then
-    if [ -d "$WORKSPACE_DIR/swig-install/bin" ] || [ -d "$HOME/swig/bin" ]; then
-        if [ -d "$WORKSPACE_DIR/dependencies-install" ]; then
-            echo "✓ Partial cache hit - SWIG and dependencies available, skipping deps build"
-            SKIP_DEPS=true
-            # Restore SWIG to PATH
-            if [ -d "$HOME/swig/bin" ]; then
-                export PATH="$HOME/swig/bin:$PATH"
-            elif [ -d "$WORKSPACE_DIR/swig-install/bin" ]; then
-                export PATH="$WORKSPACE_DIR/swig-install/bin:$PATH"
-            fi
-        fi
-    fi
-fi
+echo "Building OpenSim from scratch..."
 
 # Install system dependencies
 echo "Installing system dependencies..."
@@ -315,24 +240,18 @@ echo "Installing SWIG 4.1.1..."
 mkdir -p "$WORKSPACE_DIR/swig-source"
 cd "$WORKSPACE_DIR/swig-source"
 
-# Check if SWIG is already installed in the expected location
-if [ -f "$WORKSPACE_DIR/swig-install/bin/swig" ]; then
-    echo "SWIG is already installed in workspace."
-else
-    echo "Downloading and building SWIG 4.1.1..."
-    wget -nc -q --show-progress https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
-    tar xzf v4.1.1.tar.gz
-    cd swig-4.1.1
-    
-    sh autogen.sh
-    ./configure --prefix="$WORKSPACE_DIR/swig-install" --disable-ccache
-    make -j$NUM_JOBS
-    make install
-fi
+echo "Downloading and building SWIG 4.1.1..."
+wget -nc -q --show-progress https://github.com/swig/swig/archive/refs/tags/v4.1.1.tar.gz
+tar xzf v4.1.1.tar.gz
+cd swig-4.1.1
+
+sh autogen.sh
+./configure --prefix="$WORKSPACE_DIR/swig-install"
+make -j$NUM_JOBS
+make install
 
 # Build OpenSim dependencies
 echo "Building OpenSim dependencies..."
-# Clean any existing cache to avoid path conflicts during pip builds
 rm -rf "$WORKSPACE_DIR/opensim-dependencies-build"
 mkdir -p "$WORKSPACE_DIR/opensim-dependencies-build"
 cd "$WORKSPACE_DIR/opensim-dependencies-build"
@@ -370,7 +289,6 @@ cmake --build . --config $DEBUG_TYPE -j$NUM_JOBS
 
 # Build OpenSim core
 echo "Building OpenSim core..."
-# Clean any existing cache to avoid path conflicts during pip builds
 rm -rf "$WORKSPACE_DIR/opensim-build"
 mkdir -p "$WORKSPACE_DIR/opensim-build"
 cd "$WORKSPACE_DIR/opensim-build"
@@ -402,10 +320,5 @@ cmake "$OPENSIM_ROOT/src/opensim-core" \
 cmake --build . --config $DEBUG_TYPE -j$NUM_JOBS
 cmake --install .
 
-# Create cache completion marker
-if [ -n "$OPENSIM_COMMIT_HASH" ] && [ "$OPENSIM_COMMIT_HASH" != "unknown" ]; then
-    touch "$CACHE_MARKER"
-    echo "✓ Cache marker created: $CACHE_MARKER"
-fi
 
 echo "OpenSim setup complete. Libraries installed in: $WORKSPACE_DIR/opensim-install"

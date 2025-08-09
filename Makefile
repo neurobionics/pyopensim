@@ -60,14 +60,14 @@ setup: check-deps setup-opensim ## Complete setup: dependencies + OpenSim + Pyth
 build: ## Build the Python bindings
 	pip install -v .[test]
 
-clean: ## Clean build artifacts (preserves OpenSim cache)
+clean: ## Clean build artifacts
 	rm -rf build/cp*
 	rm -rf dist/
 	rm -rf *.egg-info/
 	find . -name "*.pyc" -delete
 	find . -name "__pycache__" -delete -type d
 
-clean-all: ## Clean all artifacts including OpenSim cache
+clean-all: ## Clean all artifacts
 	rm -rf build/
 	rm -rf dist/
 	rm -rf *.egg-info/
