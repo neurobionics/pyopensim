@@ -318,14 +318,20 @@ cd "$WORKSPACE_DIR/opensim-build"
 cmake "$OPENSIM_ROOT/src/opensim-core" \
     -DCMAKE_INSTALL_PREFIX="$WORKSPACE_DIR/opensim-install" \
     -DCMAKE_BUILD_TYPE=$DEBUG_TYPE \
+    -DCMAKE_CXX_FLAGS="-pthread -Wno-array-bounds" \
     -DOPENSIM_DEPENDENCIES_DIR="$WORKSPACE_DIR/dependencies-install" \
     -DCMAKE_PREFIX_PATH="$WORKSPACE_DIR/dependencies-install" \
     -DBUILD_JAVA_WRAPPING=OFF \
     -DBUILD_PYTHON_WRAPPING=OFF \
     -DBUILD_TESTING=OFF \
+    -DBUILD_API_EXAMPLES=OFF \
     -DOPENSIM_C3D_PARSER=ezc3d \
     -DOPENSIM_WITH_CASADI=OFF \
-    -DOPENSIM_INSTALL_UNIX_FHS=OFF
+    -DOPENSIM_WITH_TROPTER=OFF \
+    -DOPENSIM_WITH_MOCO=OFF \
+    -DOPENSIM_INSTALL_UNIX_FHS=OFF \
+    -DSWIG_DIR="$HOME/swig/share/swig" \
+    -DSWIG_EXECUTABLE="$HOME/swig/bin/swig"
 
 cmake --build . --config $DEBUG_TYPE -j$NUM_JOBS
 cmake --install .
