@@ -130,6 +130,7 @@ jobs:
             REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
             FORCE_REBUILD_OPENSIM=true
           CIBW_ENVIRONMENT_LINUX: >
+            LD_LIBRARY_PATH=$(pwd)/build/opensim-workspace/opensim-install/sdk/lib:$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib:$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib64:$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib:$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib64:$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib:$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib64:$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib:$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib64:$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib:$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib64:$(pwd)/build/opensim-workspace/dependencies-build/simbody/build:$(pwd)/build/opensim-workspace/dependencies-build/ezc3d/build:$(pwd)/build/opensim-workspace/opensim-build
             FORCE_REBUILD_OPENSIM=true
           CIBW_ENVIRONMENT_WINDOWS: >
             FORCE_REBUILD_OPENSIM=true
@@ -144,54 +145,24 @@ jobs:
             DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH 
             delocate-wheel -w {dest_dir} -v {wheel}
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
-            echo "=== Debug: Working Directory and Structure ===" &&
+            echo "=== Debug: Working Directory ===" &&
             pwd &&
-            echo "=== Debug: Looking for build directory ===" &&
-            find . -name "opensim-workspace" -type d 2>/dev/null | head -5 &&
-            echo "=== Debug: Looking for OpenSim workspace at: ./build/opensim-workspace ===" &&
-            if [ -d "./build/opensim-workspace" ]; then
-              CACHE_DIR="./build/opensim-workspace" &&
-              echo "Found OpenSim workspace" &&
-              echo "=== Debug: Looking for all required libraries ===" &&
-              SIMTK_LIBS=$(find "$CACHE_DIR" -name "libSimTK*.so*" 2>/dev/null | head -10) &&
-              echo "Found SimTK libraries: $SIMTK_LIBS" &&
-              echo "=== Looking for other OpenSim libraries ===" &&
-              find "$CACHE_DIR" -name "libezc3d.so*" 2>/dev/null | head -5 &&
-              find "$CACHE_DIR" -name "libosim*.so*" 2>/dev/null | head -10 &&
-              echo "=== Finding all relevant library directories ===" &&
-              ALL_LIB_DIRS=$(find "$CACHE_DIR" -path "*/lib*" -type d 2>/dev/null | sort -u) &&
-              echo "All potential library directories: $ALL_LIB_DIRS" &&
-              LIB_DIRS="" &&
-              PRIORITY_DIRS="" &&
-              BUILD_DIRS="" &&
-              for dir in $ALL_LIB_DIRS; do
-                if ls "$dir"/lib*.so* >/dev/null 2>&1; then
-                  echo "Found libraries in: $dir" &&
-                  if [[ "$dir" == *"/opensim-install/"* ]]; then
-                    PRIORITY_DIRS="$dir:$PRIORITY_DIRS"
-                  else
-                    BUILD_DIRS="$dir:$BUILD_DIRS"
-                  fi
-                fi
-              done &&
-              LIB_DIRS="${PRIORITY_DIRS}${BUILD_DIRS}" &&
-              if [ -n "$LIB_DIRS" ]; then
-                echo "Final library directories: $LIB_DIRS" &&
-                export LD_LIBRARY_PATH="$LIB_DIRS:$LD_LIBRARY_PATH"
-              else
-                echo "No library directories with .so files found in cache - wheel repair may fail"
-              fi
-            else
-              echo "OpenSim workspace directory not found - wheel repair may fail"
-            fi &&
-            echo "=== Final LD_LIBRARY_PATH ===" &&
+            echo "=== Debug: LD_LIBRARY_PATH ===" &&
             echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" &&
+            echo "=== Debug: Verifying library directories exist ===" &&
+            for dir in $(echo $LD_LIBRARY_PATH | tr ':' '\n'); do
+              if [ -d "$dir" ]; then
+                echo "✓ Found directory: $dir"
+                ls -la "$dir"/*.so* 2>/dev/null | head -3 || echo "  (no .so files found)"
+              else
+                echo "✗ Missing directory: $dir"
+              fi
+            done &&
+            echo "=== Debug: Checking for specific problem libraries ===" &&
+            find ./build/opensim-workspace -name "libezc3d.so*" 2>/dev/null | head -3 &&
+            find ./build/opensim-workspace -name "libosim*.so*" 2>/dev/null | head -5 &&
             echo "=== Repairing Wheel ===" &&
-            auditwheel repair -w {dest_dir} {wheel} \
-              --lib-dir ./build/opensim-workspace/opensim-install/sdk/lib \
-              --lib-dir ./build/opensim-workspace/opensim-install/sdk/Simbody/lib64 \
-              --lib-dir ./build/opensim-workspace/dependencies-install/simbody/lib64 \
-              --lib-dir ./build/opensim-workspace/dependencies-install/ezc3d/lib64
+            auditwheel repair -w {dest_dir} {wheel}
 
       - name: Verify clean directory
         run: git diff --exit-code
