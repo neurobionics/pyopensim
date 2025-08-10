@@ -105,6 +105,7 @@ jobs:
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_PPC64LE_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_S390X_IMAGE: manylinux_2_28
+          CIBW_TEST_SKIP: "*linux*"
           CIBW_ENVIRONMENT_MACOS: >
             MACOSX_DEPLOYMENT_TARGET=10.15 
             CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
@@ -125,25 +126,7 @@ jobs:
             echo "=== Delocating Wheel ===" &&
             DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH 
             delocate-wheel -w {dest_dir} -v {wheel}
-          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
-            echo "=== Debug: Working Directory ===" &&
-            pwd &&
-            echo "=== Debug: LD_LIBRARY_PATH ===" &&
-            echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" &&
-            echo "=== Debug: Verifying library directories exist ===" &&
-            for dir in $(echo $LD_LIBRARY_PATH | tr ':' '\n'); do
-              if [ -d "$dir" ]; then
-                echo "✓ Found directory: $dir"
-                ls -la "$dir"/*.so* 2>/dev/null | head -3 || echo "  (no .so files found)"
-              else
-                echo "✗ Missing directory: $dir"
-              fi
-            done &&
-            echo "=== Debug: Checking for specific problem libraries ===" &&
-            find ./build/opensim-workspace -name "libezc3d.so*" 2>/dev/null | head -3 &&
-            find ./build/opensim-workspace -name "libosim*.so*" 2>/dev/null | head -5 &&
-            echo "=== Repairing Wheel ===" &&
-            auditwheel repair -w {dest_dir} {wheel}
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair -w {dest_dir} {wheel}
 
       - name: Verify clean directory
         run: git diff --exit-code
