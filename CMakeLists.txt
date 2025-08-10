@@ -135,7 +135,8 @@ message(STATUS "Found NumPy include directory: ${Python3_NumPy_INCLUDE_DIRS}")
 # Windows-specific compiler flags
 if(WIN32 AND MSVC)
     # Add UTF-8 support flag to fix Unicode compilation issues
-    add_compile_options(/utf-8)
+    # Add /bigobj flag to handle large object files (needed for spdlog and SWIG)
+    add_compile_options(/utf-8 /bigobj)
 endif()
 
 # Options for OpenSim integration
@@ -174,7 +175,7 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
             set(LIB_EXT ".lib")
             set(DLL_EXT ".dll")
             set(SETUP_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/opensim/setup_opensim_windows.ps1")
-            set(TEST_LIB "${OPENSIM_INSTALL_DIR}/lib/osimCommon${LIB_EXT}")
+            set(TEST_LIB "${OPENSIM_INSTALL_DIR}/sdk/lib/osimCommon${LIB_EXT}")
         elseif(APPLE)
             set(LIB_EXT ".dylib")
             set(DLL_EXT ".dylib")
@@ -191,10 +192,10 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
         # Check if OpenSim libraries exist - robust check for multiple critical files
         set(OPENSIM_REQUIRED_LIBS)
         if(WIN32)
-            # Windows: OpenSim libraries in lib/, Simbody in sdk/Simbody/lib/
+            # Windows: OpenSim libraries in sdk/lib/, Simbody in sdk/Simbody/lib/
             list(APPEND OPENSIM_REQUIRED_LIBS
-                "${OPENSIM_INSTALL_DIR}/lib/osimCommon${LIB_EXT}"
-                "${OPENSIM_INSTALL_DIR}/lib/osimSimulation${LIB_EXT}"
+                "${OPENSIM_INSTALL_DIR}/sdk/lib/osimCommon${LIB_EXT}"
+                "${OPENSIM_INSTALL_DIR}/sdk/lib/osimSimulation${LIB_EXT}"
                 "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/SimTKcommon${LIB_EXT}"
             )
         else()
@@ -393,13 +394,13 @@ macro(OpenSimAddPythonModule)
     if(PYOPENSIM_BUILD_WITH_OPENSIM)
         # Platform-specific library paths
         if(WIN32)
-            # Windows: OpenSim libraries in lib/, Simbody libraries in sdk/Simbody/lib/
+            # Windows: OpenSim libraries in sdk/lib/, Simbody libraries in sdk/Simbody/lib/
             set(OSIM_LIBS
-                "${OPENSIM_INSTALL_DIR}/lib/osimCommon${LIB_EXT}"
-                "${OPENSIM_INSTALL_DIR}/lib/osimSimulation${LIB_EXT}"
-                "${OPENSIM_INSTALL_DIR}/lib/osimActuators${LIB_EXT}"
-                "${OPENSIM_INSTALL_DIR}/lib/osimAnalyses${LIB_EXT}"
-                "${OPENSIM_INSTALL_DIR}/lib/osimTools${LIB_EXT}"
+                "${OPENSIM_INSTALL_DIR}/sdk/lib/osimCommon${LIB_EXT}"
+                "${OPENSIM_INSTALL_DIR}/sdk/lib/osimSimulation${LIB_EXT}"
+                "${OPENSIM_INSTALL_DIR}/sdk/lib/osimActuators${LIB_EXT}"
+                "${OPENSIM_INSTALL_DIR}/sdk/lib/osimAnalyses${LIB_EXT}"
+                "${OPENSIM_INSTALL_DIR}/sdk/lib/osimTools${LIB_EXT}"
                 "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/SimTKcommon${LIB_EXT}"
                 "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/SimTKmath${LIB_EXT}"
                 "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib/SimTKsimbody${LIB_EXT}"
@@ -420,11 +421,11 @@ macro(OpenSimAddPythonModule)
         # Add optional libraries if they exist
         set(OPTIONAL_LIBS)
         if(WIN32)
-            # Windows: Optional libraries in lib/
+            # Windows: Optional libraries in sdk/lib/
             list(APPEND OPTIONAL_LIBS 
-                "${OPENSIM_INSTALL_DIR}/lib/osimLepton${LIB_EXT}"
-                "${OPENSIM_INSTALL_DIR}/lib/osimdocopt${LIB_EXT}"
-                "${OPENSIM_INSTALL_DIR}/lib/ezc3d${LIB_EXT}")
+                "${OPENSIM_INSTALL_DIR}/sdk/lib/osimLepton${LIB_EXT}"
+                "${OPENSIM_INSTALL_DIR}/sdk/lib/osimdocopt${LIB_EXT}"
+                "${OPENSIM_INSTALL_DIR}/sdk/lib/ezc3d${LIB_EXT}")
         else()
             list(APPEND OPTIONAL_LIBS 
                 "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimLepton${LIB_EXT}"
@@ -574,13 +575,13 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
     
     # Install OpenSim libraries - platform specific paths
     if(WIN32)
-        # Windows: OpenSim libraries in lib/ directory, need both .lib and .dll
+        # Windows: OpenSim libraries in sdk/lib/ directory, need both .lib and .dll
         set(INSTALL_LIBS
-            "${OPENSIM_INSTALL_DIR}/lib/osimCommon${LIB_EXT}"
-            "${OPENSIM_INSTALL_DIR}/lib/osimSimulation${LIB_EXT}"
-            "${OPENSIM_INSTALL_DIR}/lib/osimActuators${LIB_EXT}"
-            "${OPENSIM_INSTALL_DIR}/lib/osimAnalyses${LIB_EXT}"
-            "${OPENSIM_INSTALL_DIR}/lib/osimTools${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/osimCommon${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/osimSimulation${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/osimActuators${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/osimAnalyses${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/osimTools${LIB_EXT}"
         )
         # Also install runtime DLLs for Windows
         set(INSTALL_DLLS
@@ -764,9 +765,9 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
     # Install optional libraries - platform specific paths
     if(WIN32)
         set(OPTIONAL_INSTALL_LIBS
-            "${OPENSIM_INSTALL_DIR}/lib/osimLepton${LIB_EXT}"
-            "${OPENSIM_INSTALL_DIR}/lib/osimdocopt${LIB_EXT}"
-            "${OPENSIM_INSTALL_DIR}/lib/ezc3d${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/osimLepton${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/osimdocopt${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/ezc3d${LIB_EXT}"
         )
         set(OPTIONAL_INSTALL_DLLS
             "${OPENSIM_INSTALL_DIR}/bin/osimLepton.dll"

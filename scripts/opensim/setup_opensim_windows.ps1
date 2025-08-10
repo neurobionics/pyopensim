@@ -78,6 +78,7 @@ choco install visualstudio2022buildtools -y
 choco install cmake.install --version 3.23.3 --installargs '"ADD_CMAKE_TO_PATH=System"' -y
 
 # Install dependencies of opensim-core
+choco install python3  -y
 choco install jdk8  -y
 choco install swig  -y --version 4.1.1
 choco install nsis  -y
@@ -103,10 +104,10 @@ Set-Location $DEPENDENCIES_BUILD_DIR
 cmake "$OPENSIM_ROOT\src\opensim-core\dependencies" `
     -G"Visual Studio 17 2022" -A x64 `
     -DCMAKE_INSTALL_PREFIX="$DEPENDENCIES_INSTALL_DIR" `
-    -DCMAKE_BUILD_TYPE=$DEBUG_TYPE `
     -DSUPERBUILD_ezc3d:BOOL=on `
     -DOPENSIM_WITH_CASADI:BOOL=$MOCO
 
+cmake . -LAH
 cmake --build . --config $DEBUG_TYPE -- /maxcpucount:$NUM_JOBS /p:CL_MPCount=1
 
 Write-Output "Building OpenSim core..."
@@ -126,7 +127,6 @@ $env:CL = "/MP1"
 cmake "$OPENSIM_ROOT\src\opensim-core" `
     -G"Visual Studio 17 2022" -A x64 `
     -DCMAKE_INSTALL_PREFIX="$OPENSIM_INSTALL_DIR" `
-    -DCMAKE_BUILD_TYPE=$DEBUG_TYPE `
     -DOPENSIM_DEPENDENCIES_DIR="$DEPENDENCIES_INSTALL_DIR" `
     -DBUILD_JAVA_WRAPPING=OFF `
     -DBUILD_PYTHON_WRAPPING=OFF `
@@ -135,6 +135,7 @@ cmake "$OPENSIM_ROOT\src\opensim-core" `
     -DOPENSIM_WITH_CASADI:BOOL=$MOCO `
     -DOPENSIM_INSTALL_UNIX_FHS=OFF
 
+cmake . -LAH
 cmake --build . --config $DEBUG_TYPE -- /maxcpucount:$NUM_JOBS /p:CL_MPCount=1
 cmake --install .
 

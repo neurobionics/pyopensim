@@ -304,6 +304,8 @@ cd "$WORKSPACE_DIR/dependencies-build"
 cmake "$OPENSIM_ROOT/src/opensim-core/dependencies" \
     -DCMAKE_INSTALL_PREFIX="$WORKSPACE_DIR/dependencies-install" \
     -DCMAKE_BUILD_TYPE=$DEBUG_TYPE \
+    -DCMAKE_CXX_FLAGS="-pthread -fPIC" \
+    -DCMAKE_C_FLAGS="-pthread -fPIC" \
     -DSUPERBUILD_ezc3d=ON \
     -DOPENSIM_WITH_CASADI=OFF
 
@@ -318,7 +320,10 @@ cd "$WORKSPACE_DIR/opensim-build"
 cmake "$OPENSIM_ROOT/src/opensim-core" \
     -DCMAKE_INSTALL_PREFIX="$WORKSPACE_DIR/opensim-install" \
     -DCMAKE_BUILD_TYPE=$DEBUG_TYPE \
-    -DCMAKE_CXX_FLAGS="-pthread -Wno-array-bounds" \
+    -DCMAKE_CXX_FLAGS="-pthread -Wno-array-bounds -fPIC" \
+    -DCMAKE_C_FLAGS="-pthread -fPIC" \
+    -DCMAKE_EXE_LINKER_FLAGS="-pthread" \
+    -DCMAKE_SHARED_LINKER_FLAGS="-pthread" \
     -DOPENSIM_DEPENDENCIES_DIR="$WORKSPACE_DIR/dependencies-install" \
     -DCMAKE_PREFIX_PATH="$WORKSPACE_DIR/dependencies-install" \
     -DBUILD_JAVA_WRAPPING=OFF \
