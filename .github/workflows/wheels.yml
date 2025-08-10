@@ -187,7 +187,11 @@ jobs:
             echo "=== Final LD_LIBRARY_PATH ===" &&
             echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" &&
             echo "=== Repairing Wheel ===" &&
-            auditwheel repair -w {dest_dir} {wheel}
+            auditwheel repair -w {dest_dir} {wheel} \
+              --lib-dir ./build/opensim-workspace/opensim-install/sdk/lib \
+              --lib-dir ./build/opensim-workspace/opensim-install/sdk/Simbody/lib64 \
+              --lib-dir ./build/opensim-workspace/dependencies-install/simbody/lib64 \
+              --lib-dir ./build/opensim-workspace/dependencies-install/ezc3d/lib64
 
       - name: Verify clean directory
         run: git diff --exit-code
