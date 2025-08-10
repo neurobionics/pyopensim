@@ -100,7 +100,7 @@ if (-not (Test-Path -Path $DEPENDENCIES_BUILD_DIR)) {
 
 Set-Location $DEPENDENCIES_BUILD_DIR
 
-cmake "$OPENSIM_ROOT\opensim-core\dependencies" `
+cmake "$OPENSIM_ROOT\src\opensim-core\dependencies" `
     -G"Visual Studio 17 2022" -A x64 `
     -DCMAKE_INSTALL_PREFIX="$DEPENDENCIES_INSTALL_DIR" `
     -DCMAKE_BUILD_TYPE=$DEBUG_TYPE `
@@ -123,7 +123,7 @@ Set-Location $OPENSIM_BUILD_DIR
 $env:CXXFLAGS = "/W0 /utf-8 /bigobj"
 $env:CL = "/MP1"
 
-cmake "$OPENSIM_ROOT\opensim-core" `
+cmake "$OPENSIM_ROOT\src\opensim-core" `
     -G"Visual Studio 17 2022" -A x64 `
     -DCMAKE_INSTALL_PREFIX="$OPENSIM_INSTALL_DIR" `
     -DCMAKE_BUILD_TYPE=$DEBUG_TYPE `
