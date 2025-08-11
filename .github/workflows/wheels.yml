@@ -62,28 +62,18 @@ jobs:
           echo "matrix={\"include\":$(echo $matrix)}" >> $GITHUB_OUTPUT
 
 
-  build_wheels:
-    name: Wheels on ${{ matrix.os }}
+  build_opensim:
+    name: Build OpenSim on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: matrix_prep
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix_prep.outputs.matrix) }}
-
+    
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
-
-      - name: Setup system dependencies  
-        run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y cmake git libpcre2-dev libpcre3-dev
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            brew install cmake git
-          fi
-        shell: bash
 
       - name: Get OpenSim Core submodule SHA
         id: opensim-sha
@@ -93,6 +83,68 @@ jobs:
           echo "OpenSim Core SHA: $OPENSIM_SHA"
         shell: bash
 
+      - name: Cache OpenSim build
+        id: cache-opensim
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/opensim-workspace
+          key: opensim-${{ matrix.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}
+          restore-keys: |
+            opensim-${{ matrix.os }}-
+
+      - name: Setup system dependencies  
+        if: steps.cache-opensim.outputs.cache-hit != 'true'
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y cmake git libpcre2-dev libpcre3-dev
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            brew install cmake git
+          fi
+        shell: bash
+
+      - name: Build OpenSim dependencies
+        if: steps.cache-opensim.outputs.cache-hit != 'true'
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            chmod +x ./scripts/opensim/setup_opensim_linux.sh && ./scripts/opensim/setup_opensim_linux.sh
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            chmod +x ./scripts/opensim/setup_opensim_macos.sh && ./scripts/opensim/setup_opensim_macos.sh
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
+          fi
+        shell: bash
+
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs: [matrix_prep, build_opensim]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix_prep.outputs.matrix) }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Get OpenSim Core submodule SHA
+        id: opensim-sha
+        run: |
+          OPENSIM_SHA=$(git rev-parse HEAD:src/opensim-core)
+          echo "opensim_sha=$OPENSIM_SHA" >> $GITHUB_OUTPUT
+          echo "OpenSim Core SHA: $OPENSIM_SHA"
+        shell: bash
+
+      - name: Restore OpenSim build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/opensim-workspace
+          key: opensim-${{ matrix.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}
+          restore-keys: |
+            opensim-${{ matrix.os }}-
 
       - uses: pypa/cibuildwheel@v3.1.3
         env:
@@ -110,15 +162,8 @@ jobs:
             MACOSX_DEPLOYMENT_TARGET=10.15 
             CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
             REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
-            FORCE_REBUILD_OPENSIM=true
           CIBW_ENVIRONMENT_LINUX: >
-            LD_LIBRARY_PATH=$(pwd)/build/opensim-workspace/opensim-install/sdk/lib:$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib:$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib64:$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib:$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib64:$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib:$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib64:$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib:$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib64:$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib:$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib64
-            FORCE_REBUILD_OPENSIM=true
-          CIBW_ENVIRONMENT_WINDOWS: >
-            FORCE_REBUILD_OPENSIM=true
-          CIBW_BEFORE_BUILD_MACOS: chmod +x ./scripts/opensim/setup_opensim_macos.sh && ./scripts/opensim/setup_opensim_macos.sh
-          CIBW_BEFORE_BUILD_LINUX: chmod +x ./scripts/opensim/setup_opensim_linux.sh && ./scripts/opensim/setup_opensim_linux.sh
-          CIBW_BEFORE_BUILD_WINDOWS: powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
+            LD_LIBRARY_PATH=/host$(pwd)/build/opensim-workspace/opensim-install/sdk/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib64:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib64
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             echo "=== Architecture Check ===" &&
             file ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTKmath.3.8.dylib &&
