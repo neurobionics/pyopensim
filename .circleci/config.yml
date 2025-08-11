@@ -1,0 +1,311 @@
+version: 2.1
+
+orbs:
+  python: circleci/python@2.1.1
+  win: circleci/windows@2.2.0
+
+# Define parameters for manual triggers
+parameters:
+  build_ubuntu:
+    type: boolean
+    default: true
+  build_macos:
+    type: boolean
+    default: true
+  build_windows:
+    type: boolean
+    default: true
+
+executors:
+  ubuntu-executor:
+    docker:
+      - image: cimg/python:3.11
+    resource_class: xlarge
+  
+  macos-executor:
+    macos:
+      xcode: "15.2.0"
+    resource_class: macos.x86.medium.gen2
+  
+  windows-executor:
+    executor: win/default
+    resource_class: windows.xlarge
+
+commands:
+  setup-opensim-deps:
+    description: "Setup OpenSim dependencies based on platform"
+    parameters:
+      platform:
+        type: string
+    steps:
+      - when:
+          condition:
+            equal: [ "ubuntu", << parameters.platform >> ]
+          steps:
+            - run:
+                name: Install Ubuntu dependencies
+                command: |
+                  sudo apt-get update
+                  sudo apt-get install -y cmake git libpcre2-dev libpcre3-dev
+      - when:
+          condition:
+            equal: [ "macos", << parameters.platform >> ]
+          steps:
+            - run:
+                name: Install macOS dependencies
+                command: |
+                  brew install cmake git
+      - when:
+          condition:
+            equal: [ "windows", << parameters.platform >> ]
+          steps:
+            - run:
+                name: Install Windows dependencies
+                shell: powershell.exe
+                command: |
+                  choco install cmake git -y
+
+  build-opensim:
+    description: "Build OpenSim core"
+    parameters:
+      platform:
+        type: string
+    steps:
+      - run:
+          name: Get OpenSim Core submodule SHA
+          command: |
+            OPENSIM_SHA=$(git rev-parse HEAD:src/opensim-core)
+            echo "export OPENSIM_SHA=$OPENSIM_SHA" >> $BASH_ENV
+            echo "OpenSim Core SHA: $OPENSIM_SHA"
+      - restore_cache:
+          keys:
+            - opensim-<< parameters.platform >>-{{ .Environment.OPENSIM_SHA }}
+            - opensim-<< parameters.platform >>-
+      - when:
+          condition:
+            equal: [ "ubuntu", << parameters.platform >> ]
+          steps:
+            - run:
+                name: Build OpenSim on Ubuntu
+                command: |
+                  if [ ! -d "build/opensim-workspace" ]; then
+                    chmod +x ./scripts/opensim/setup_opensim_linux.sh
+                    ./scripts/opensim/setup_opensim_linux.sh
+                  fi
+      - when:
+          condition:
+            equal: [ "macos", << parameters.platform >> ]
+          steps:
+            - run:
+                name: Build OpenSim on macOS
+                command: |
+                  if [ ! -d "build/opensim-workspace" ]; then
+                    chmod +x ./scripts/opensim/setup_opensim_macos.sh
+                    ./scripts/opensim/setup_opensim_macos.sh
+                  fi
+      - when:
+          condition:
+            equal: [ "windows", << parameters.platform >> ]
+          steps:
+            - run:
+                name: Build OpenSim on Windows
+                shell: powershell.exe
+                command: |
+                  if (!(Test-Path "build/opensim-workspace")) {
+                    powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
+                  }
+      - save_cache:
+          key: opensim-<< parameters.platform >>-{{ .Environment.OPENSIM_SHA }}
+          paths:
+            - build/opensim-workspace
+
+  build-wheels:
+    description: "Build wheels using cibuildwheel"
+    parameters:
+      platform:
+        type: string
+    steps:
+      - python/install-packages:
+          pkg-manager: pip
+          pip-dependency-file: requirements.txt
+      - run:
+          name: Install cibuildwheel
+          command: pip install cibuildwheel==2.16.5
+      - when:
+          condition:
+            equal: [ "ubuntu", << parameters.platform >> ]
+          steps:
+            - run:
+                name: Build Linux wheels
+                command: |
+                  export CIBW_ARCHS_LINUX="auto aarch64"
+                  export CIBW_MANYLINUX_X86_64_IMAGE="manylinux_2_28"
+                  export CIBW_MANYLINUX_I686_IMAGE="manylinux_2_28"
+                  export CIBW_MANYLINUX_AARCH64_IMAGE="manylinux_2_28"
+                  export CIBW_TEST_SKIP="*linux*"
+                  export CIBW_ENVIRONMENT_LINUX="LD_LIBRARY_PATH=/host$(pwd)/build/opensim-workspace/opensim-install/sdk/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib64:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib64"
+                  export CIBW_REPAIR_WHEEL_COMMAND_LINUX="auditwheel repair -w {dest_dir} {wheel}"
+                  cibuildwheel --output-dir wheelhouse
+      - when:
+          condition:
+            equal: [ "macos", << parameters.platform >> ]
+          steps:
+            - run:
+                name: Build macOS wheels
+                command: |
+                  export CIBW_ARCHS_MACOS="universal2"
+                  export CIBW_ENVIRONMENT_MACOS="MACOSX_DEPLOYMENT_TARGET=10.15 CMAKE_OSX_ARCHITECTURES=x86_64;arm64 REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib"
+                  export CIBW_REPAIR_WHEEL_COMMAND_MACOS="echo '=== Architecture Check ===' && file ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTKmath.3.8.dylib && file ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTKsimbody.3.8.dylib && echo '=== Delocating Wheel ===' && DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-wheel -w {dest_dir} -v {wheel}"
+                  cibuildwheel --output-dir wheelhouse
+      - when:
+          condition:
+            equal: [ "windows", << parameters.platform >> ]
+          steps:
+            - run:
+                name: Build Windows wheels
+                shell: bash.exe
+                command: |
+                  export CIBW_ARCHS_WINDOWS="auto ARM64"
+                  cibuildwheel --output-dir wheelhouse
+      - run:
+          name: Verify clean directory
+          command: git diff --exit-code
+      - store_artifacts:
+          path: wheelhouse
+          destination: wheels
+      - persist_to_workspace:
+          root: .
+          paths:
+            - wheelhouse
+
+jobs:
+  build-ubuntu:
+    executor: ubuntu-executor
+    steps:
+      - checkout:
+          submodules: true
+      - setup-opensim-deps:
+          platform: "ubuntu"
+      - build-opensim:
+          platform: "ubuntu"
+      - build-wheels:
+          platform: "ubuntu"
+
+  build-macos:
+    executor: macos-executor
+    steps:
+      - checkout:
+          submodules: true
+      - setup-opensim-deps:
+          platform: "macos"
+      - build-opensim:
+          platform: "macos"
+      - build-wheels:
+          platform: "macos"
+
+  build-windows:
+    executor: windows-executor
+    steps:
+      - checkout:
+          submodules: true
+      - setup-opensim-deps:
+          platform: "windows"
+      - build-opensim:
+          platform: "windows"
+      - build-wheels:
+          platform: "windows"
+
+  upload-to-pypi:
+    executor: ubuntu-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - python/install-packages:
+          pkg-manager: pip
+          pip-dependency-file: requirements.txt
+      - run:
+          name: Install twine
+          command: pip install twine
+      - run:
+          name: Upload to PyPI
+          command: |
+            python -m twine upload wheelhouse/*.whl --skip-existing
+
+workflows:
+  version: 2
+  
+  # Manual workflow with platform selection
+  manual-build:
+    when:
+      or:
+        - << pipeline.parameters.build_ubuntu >>
+        - << pipeline.parameters.build_macos >>
+        - << pipeline.parameters.build_windows >>
+    jobs:
+      - build-ubuntu:
+          filters:
+            branches:
+              only: /.*/
+          pre-steps:
+            - run:
+                name: Check if Ubuntu build requested
+                command: |
+                  if [ "<< pipeline.parameters.build_ubuntu >>" != "true" ]; then
+                    circleci step halt
+                  fi
+      - build-macos:
+          filters:
+            branches:
+              only: /.*/
+          pre-steps:
+            - run:
+                name: Check if macOS build requested
+                command: |
+                  if [ "<< pipeline.parameters.build_macos >>" != "true" ]; then
+                    circleci step halt
+                  fi
+      - build-windows:
+          filters:
+            branches:
+              only: /.*/
+          pre-steps:
+            - run:
+                name: Check if Windows build requested
+                command: |
+                  if [ "<< pipeline.parameters.build_windows >>" != "true" ]; then
+                    circleci step halt
+                  fi
+
+  # Automatic workflow for releases
+  release-build:
+    jobs:
+      - build-ubuntu:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - build-macos:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - build-windows:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - upload-to-pypi:
+          requires:
+            - build-ubuntu
+            - build-macos
+            - build-windows
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+          context:
+            - pypi-upload
