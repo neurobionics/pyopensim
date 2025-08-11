@@ -146,9 +146,37 @@ jobs:
           restore-keys: |
             opensim-${{ matrix.os }}-
 
-      - name: Clean build artifacts
+      - name: Verify cache and clean build artifacts
         run: |
-          echo "Cleaning build artifacts to prevent linking conflicts..."
+          echo "=== Verifying cached OpenSim installation ==="
+          if [ -d "build/opensim-workspace" ]; then
+            echo "✓ opensim-workspace directory exists"
+            ls -la build/opensim-workspace/
+            if [ -d "build/opensim-workspace/opensim-install" ]; then
+              echo "✓ opensim-install directory exists"
+              ls -la build/opensim-workspace/opensim-install/
+              if [ -d "build/opensim-workspace/opensim-install/sdk/lib" ]; then
+                echo "✓ SDK lib directory exists, contents:"
+                ls -la build/opensim-workspace/opensim-install/sdk/lib/
+              else
+                echo "✗ SDK lib directory missing"
+              fi
+            else
+              echo "✗ opensim-install directory missing"
+            fi
+            if [ -f "$HOME/swig/bin/swig" ]; then
+              echo "✓ Cached SWIG found at $HOME/swig/bin/swig"
+              "$HOME/swig/bin/swig" -version
+            else
+              echo "✗ Cached SWIG not found at $HOME/swig/bin/swig"
+              # Try to find SWIG elsewhere
+              find build/opensim-workspace -name "swig" -type f 2>/dev/null || echo "No swig executable found in workspace"
+            fi
+          else
+            echo "✗ opensim-workspace directory missing"
+          fi
+          
+          echo "=== Cleaning build artifacts to prevent linking conflicts ==="
           # Remove any .so, .o, and .pyc files that could cause issues
           find . -name "*.so" -not -path "./.venv/*" -not -path "./venv/*" -delete 2>/dev/null || true
           find . -name "*.o" -delete 2>/dev/null || true
@@ -195,6 +223,8 @@ jobs:
             REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
           CIBW_ENVIRONMENT_LINUX: >
             PATH=/host$HOME/swig/bin:$PATH
+            SWIG_EXECUTABLE=/host$HOME/swig/bin/swig
+            SWIG_DIR=/host$HOME/swig/share/swig
             LD_LIBRARY_PATH=/host$(pwd)/build/opensim-workspace/opensim-install/sdk/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib64:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib64
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             echo "=== Architecture Check ===" &&
