@@ -177,28 +177,37 @@ jobs:
           fi
           
           echo "=== Cleaning build artifacts to prevent linking conflicts ==="
-          # Remove any .so, .o, and .pyc files that could cause issues
-          find . -name "*.so" -not -path "./.venv/*" -not -path "./venv/*" -delete 2>/dev/null || true
+          # Remove .o, .pyc files and Python cache directories
           find . -name "*.o" -delete 2>/dev/null || true
           find . -name "*.pyc" -delete 2>/dev/null || true
           find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
           # Clean any Python build directories that might have been created
           rm -rf build/temp* build/lib* build/bdist* 2>/dev/null || true
-          # Clean opensim-workspace build artifacts but preserve the built libraries
+          
+          # Clean opensim-workspace build artifacts but preserve the installed libraries
           if [ -d "build/opensim-workspace" ]; then
             echo "Cleaning opensim-workspace build artifacts..."
-            # Remove the problematic intermediate .so files from build directories
-            rm -f build/opensim-workspace/opensim-build/lib*.so 2>/dev/null || true
-            rm -f build/opensim-workspace/dependencies-build/simbody/build/lib*.so 2>/dev/null || true
-            rm -f build/opensim-workspace/dependencies-build/ezc3d/build/lib*.so 2>/dev/null || true
+            # CRITICAL: Only remove .so files from BUILD directories, NOT install directories
+            # Remove intermediate .so files from build directories only
+            rm -f build/opensim-workspace/opensim-build/lib*.so* 2>/dev/null || true
+            rm -f build/opensim-workspace/dependencies-build/simbody/build/lib*.so* 2>/dev/null || true  
+            rm -f build/opensim-workspace/dependencies-build/ezc3d/build/lib*.so* 2>/dev/null || true
+            
             # Remove object files and CMake cache
             find build/opensim-workspace -name "*.o" -delete 2>/dev/null || true
             find build/opensim-workspace -name "CMakeFiles" -type d -exec rm -rf {} + 2>/dev/null || true
             find build/opensim-workspace -name "CMakeCache.txt" -delete 2>/dev/null || true
+            
             # Clean specific build directories that can cause conflicts
             rm -rf build/opensim-workspace/opensim-build/CMakeFiles 2>/dev/null || true
             rm -rf build/opensim-workspace/dependencies-build/*/CMakeFiles 2>/dev/null || true
             rm -rf build/opensim-workspace/dependencies-build/*/build/CMakeFiles 2>/dev/null || true
+            
+            # PRESERVE these critical directories with installed libraries:
+            # - build/opensim-workspace/opensim-install/sdk/lib/
+            # - build/opensim-workspace/opensim-install/sdk/Simbody/lib/
+            # - build/opensim-workspace/dependencies-install/simbody/lib/
+            echo "✓ Preserved installed libraries in opensim-install/ and dependencies-install/"
           fi
           echo "Build artifact cleanup completed"
         shell: bash
