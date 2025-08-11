@@ -237,7 +237,7 @@ jobs:
             rm -rf swig-4.1.1 &&
             swig -version
           CIBW_ENVIRONMENT_MACOS: >
-            MACOSX_DEPLOYMENT_TARGET=10.15 
+            MACOSX_DEPLOYMENT_TARGET=14.0 
             CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
             REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
           CIBW_ENVIRONMENT_LINUX: >
@@ -250,8 +250,7 @@ jobs:
             file ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTKmath.3.8.dylib &&
             file ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTKsimbody.3.8.dylib &&
             echo "=== Delocating Wheel ===" &&
-            DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH 
-            delocate-wheel -w {dest_dir} -v {wheel}
+            DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-wheel -w {dest_dir} -v {wheel}
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair -w {dest_dir} {wheel}
 
       - name: Verify clean directory
