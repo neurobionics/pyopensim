@@ -28,7 +28,8 @@ executors:
     resource_class: macos.x86.medium.gen2
   
   windows-executor:
-    win/default
+    machine:
+      image: windows-server-2022-gui:current
     resource_class: windows.xlarge
 
 commands:
