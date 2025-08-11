@@ -224,16 +224,26 @@ jobs:
           CIBW_MANYLINUX_PPC64LE_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_S390X_IMAGE: manylinux_2_28
           CIBW_TEST_SKIP: "*linux*"
-          # SWIG 4.1.1 is already installed by the setup scripts and cached
-          # No additional SWIG installation needed
+          # Install specific SWIG version 4.1.1 for compatibility
+          CIBW_BEFORE_BUILD_LINUX: >
+            dnf install -y pcre-devel pcre2-devel autoconf automake libtool &&
+            curl -L https://github.com/swig/swig/archive/v4.1.1.tar.gz | tar xz &&
+            cd swig-4.1.1 &&
+            ./autogen.sh &&
+            ./configure --prefix=/usr/local &&
+            make -j$(nproc) &&
+            make install &&
+            cd .. &&
+            rm -rf swig-4.1.1 &&
+            swig -version
           CIBW_ENVIRONMENT_MACOS: >
             MACOSX_DEPLOYMENT_TARGET=10.15 
             CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
             REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
           CIBW_ENVIRONMENT_LINUX: >
-            PATH=/host$HOME/swig/bin:$PATH
-            SWIG_EXECUTABLE=/host$HOME/swig/bin/swig
-            SWIG_DIR=/host$HOME/swig/share/swig
+            PATH=/usr/local/bin:$PATH
+            SWIG_EXECUTABLE=/usr/local/bin/swig
+            SWIG_DIR=/usr/local/share/swig
             LD_LIBRARY_PATH=/host$(pwd)/build/opensim-workspace/opensim-install/sdk/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib64:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib64
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             echo "=== Architecture Check ===" &&
