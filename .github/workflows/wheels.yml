@@ -187,43 +187,14 @@ jobs:
           CIBW_MANYLINUX_PPC64LE_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_S390X_IMAGE: manylinux_2_28
           CIBW_TEST_SKIP: "*linux*"
-          # Install specific SWIG 4.1.1 version to match CMake requirements
-          CIBW_BEFORE_ALL_LINUX: |
-            yum install -y wget pcre-devel autoconf automake libtool bison &&
-            cd /tmp &&
-            wget https://github.com/swig/swig/archive/v4.1.1.tar.gz &&
-            tar xzf v4.1.1.tar.gz &&
-            cd swig-4.1.1 &&
-            ./autogen.sh &&
-            ./configure --prefix=/usr/local &&
-            make -j$(nproc) &&
-            make install &&
-            ln -sf /usr/local/bin/swig /usr/bin/swig &&
-            swig -version
-          CIBW_BEFORE_ALL_MACOS: |
-            brew uninstall --ignore-dependencies swig || true &&
-            brew install autoconf automake libtool pcre &&
-            cd /tmp &&
-            wget https://github.com/swig/swig/archive/v4.1.1.tar.gz &&
-            tar xzf v4.1.1.tar.gz &&
-            cd swig-4.1.1 &&
-            ./autogen.sh &&
-            ./configure --prefix=/usr/local &&
-            make -j$(sysctl -n hw.ncpu) &&
-            make install &&
-            swig -version
-          CIBW_BEFORE_ALL_WINDOWS: |
-            mkdir -p C:\temp &&
-            cd C:\temp &&
-            curl -L -o swig-4.1.1-win.zip https://sourceforge.net/projects/swig/files/swigwin/swigwin-4.1.1/swigwin-4.1.1.zip/download &&
-            unzip -o swig-4.1.1-win.zip &&
-            cp -r swigwin-4.1.1/* C:\Windows\System32\ &&
-            swig -version
+          # SWIG 4.1.1 is already installed by the setup scripts and cached
+          # No additional SWIG installation needed
           CIBW_ENVIRONMENT_MACOS: >
             MACOSX_DEPLOYMENT_TARGET=10.15 
             CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
             REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
           CIBW_ENVIRONMENT_LINUX: >
+            PATH=/host$HOME/swig/bin:$PATH
             LD_LIBRARY_PATH=/host$(pwd)/build/opensim-workspace/opensim-install/sdk/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib64:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib64
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             echo "=== Architecture Check ===" &&
