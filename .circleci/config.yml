@@ -28,7 +28,7 @@ executors:
     resource_class: macos.x86.medium.gen2
   
   windows-executor:
-    executor: win/default
+    win/default
     resource_class: windows.xlarge
 
 commands:
@@ -215,6 +215,32 @@ jobs:
       - build-wheels:
           platform: "windows"
 
+  test-upload-to-pypi:
+    executor: ubuntu-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - python/install-packages:
+          pkg-manager: pip
+          pip-dependency-file: requirements.txt
+      - run:
+          name: Install twine and verification tools
+          command: |
+            pip install twine==5.1.1 check-wheel-contents==0.6.0
+      - run:
+          name: Verify wheels
+          command: |
+            echo "=== Verifying wheel contents ==="
+            for wheel in wheelhouse/*.whl; do
+              echo "Checking: $wheel"
+              check-wheel-contents "$wheel"
+              python -m twine check "$wheel"
+            done
+      - run:
+          name: Upload to TestPyPI
+          command: |
+            python -m twine upload --repository testpypi wheelhouse/*.whl --skip-existing --verbose
+  
   upload-to-pypi:
     executor: ubuntu-executor
     steps:
@@ -224,12 +250,23 @@ jobs:
           pkg-manager: pip
           pip-dependency-file: requirements.txt
       - run:
-          name: Install twine
-          command: pip install twine
+          name: Install twine and verification tools
+          command: |
+            pip install twine==5.1.1 check-wheel-contents==0.6.0
+      - run:
+          name: Verify wheels before upload
+          command: |
+            echo "=== Verifying wheel contents ==="
+            for wheel in wheelhouse/*.whl; do
+              echo "Checking: $wheel"
+              check-wheel-contents "$wheel"
+              python -m twine check "$wheel"
+            done
       - run:
           name: Upload to PyPI
           command: |
-            python -m twine upload wheelhouse/*.whl --skip-existing
+            echo "=== Uploading to PyPI ==="
+            python -m twine upload wheelhouse/*.whl --skip-existing --verbose
 
 workflows:
   version: 2
@@ -297,11 +334,21 @@ workflows:
               only: /^v.*/
             branches:
               ignore: /.*/
-      - upload-to-pypi:
+      - test-upload-to-pypi:
           requires:
             - build-ubuntu
             - build-macos
             - build-windows
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+          context:
+            - pypi-test-upload
+      - upload-to-pypi:
+          requires:
+            - test-upload-to-pypi
           filters:
             tags:
               only: /^v.*/
