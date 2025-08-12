@@ -1,4 +1,4 @@
-.PHONY: help test build clean clean-all setup setup-opensim check-deps
+.PHONY: help test build check clean clean-all setup setup-opensim check-deps
 
 # Platform detection for cross-platform development
 UNAME_S := $(shell uname -s 2>/dev/null || echo "Windows")
@@ -58,6 +58,9 @@ setup: check-deps setup-opensim ## Complete setup: dependencies + OpenSim + Pyth
 
 build: ## Build the Python bindings
 	pip install -v .[test]
+
+check:
+	mypy src/pyopensim
 
 clean: ## Clean build artifacts
 	rm -rf build/cp*

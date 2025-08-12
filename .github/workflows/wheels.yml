@@ -15,9 +15,9 @@ on:
         default: true
         type: boolean
       build_windows:
-        description: 'Build Windows wheels'
+        description: 'Build Windows wheels (WIP)'
         required: false
-        default: true
+        default: false
         type: boolean
       force_rebuild_cache:
         description: 'Force rebuild OpenSim cache (ignores existing cache)'
@@ -29,9 +29,9 @@ on:
   #   branches:
   #     - master
   #     - main
-  # release:
-  #   types:
-  #     - published
+  release:
+    types:
+      - published
 
 env:
   FORCE_COLOR: 3
@@ -61,8 +61,8 @@ jobs:
               matrix=$(echo $matrix | jq '. += [{"os": "windows-latest"}]')
             fi
           else
-            # Automatic trigger - build all platforms
-            matrix='[{"os": "ubuntu-latest"}, {"os": "macos-latest"}, {"os": "windows-latest"}]'
+            # Automatic trigger - build Linux and macOS only (Windows has issues)
+            matrix='[{"os": "ubuntu-latest"}, {"os": "macos-latest"}]'
           fi
           echo "matrix={\"include\":$(echo $matrix)}" >> $GITHUB_OUTPUT
 
@@ -304,9 +304,26 @@ jobs:
           path: wheelhouse/*.whl
 
 
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-sdist
+          path: dist/*.tar.gz
+
   upload_all:
     name: Upload if release
-    needs: [build_wheels]
+    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
     environment: pypi

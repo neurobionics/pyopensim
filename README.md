@@ -1,13 +1,130 @@
 # pyopensim
-Portable python bindings for OpenSim with type hints
+
+Portable Python bindings for [OpenSim](https://opensim.stanford.edu/) with comprehensive type hints.
+
+[![PyPI version](https://badge.fury.io/py/pyopensim.svg)](https://badge.fury.io/py/pyopensim)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+## Why pyopensim?
+
+While the OpenSim team provides excellent [conda packages](https://anaconda.org/opensim-org/opensim), pyopensim offers complementary benefits for specific use cases:
+
+**PyPI Integration**: Available through standard `pip install` for seamless integration with PyPI-based workflows
+
+**Enhanced IDE Support**: Comprehensive type hints (`.pyi` stubs) provide excellent autocomplete, type checking, and documentation in modern IDEs
+
+**Wheel Distribution**: Self-contained wheels make it easy to bundle OpenSim with your applications without requiring users to manage conda environments
+
+**Flexible Deployment**: Works well in environments where conda isn't preferred (Docker containers, serverless, CI/CD pipelines)
+
 
 ## Key Features
-- **Portable**: Self-contained Python wheels with bundled OpenSim libraries
-- **Type Hints**: Inline `.pyi` stub files for type checking and IDE support
-- **Cross-Platform**: Supports Windows, macOS, and Linux
-- **OpenSim's Native SWIG Bindings**: Uses OpenSim's official SWIG bindings for consistency
 
+- **Portable**: Self-contained Python wheels with bundled OpenSim libraries
+- **Type Hints**: Comprehensive `.pyi` stub files for excellent IDE support and type checking
+- **Cross-Platform**: Native support for Windows (work in progress), macOS, and Linux
+- **Official Bindings**: Uses OpenSim's native SWIG bindings for full API compatibility
+- **PyPI Ready**: Simple `pip install` - integrates with standard Python packaging
+
+
+## Installation
+
+Install directly from PyPI:
+
+```bash
+pip install pyopensim
+```
+
+No additional setup required! All OpenSim libraries are bundled in the wheel.
+
+## Quick Start
+
+```python
+import pyopensim as osim
+
+# Create a simple model
+model = osim.Model()
+model.setName("MyModel")
+
+# Add a body
+body = osim.Body("body", 1.0, osim.Vec3(0), osim.Inertia(1))
+model.addComponent(body)
+
+# Build and initialize
+state = model.initSystem()
+print(f"Model has {model.getNumBodies()} bodies")
+```
+
+## PyPI Distribution
+
+pyopensim is automatically built and deployed to [PyPI](https://pypi.org/project/pyopensim/) using:
+
+- **Automated Builds**: GitHub Actions CI/CD builds wheels for all platforms
+- **cibuildwheel**: Ensures compatibility across Python versions and platforms  
+- **Bundled Libraries**: All OpenSim dependencies are included in the wheels
+- **Version Management**: Semantic versioning aligned with OpenSim releases
+- **Automated Tests**: Automated testing ensures each release works correctly
+
+This provides an alternative distribution method that complements the official OpenSim library.
+
+## Contributing
+
+We welcome contributions of all kinds! Whether you're fixing bugs, improving type stubs, or enhancing documentation, your help is appreciated.
+
+**[Contributing Guidelines](CONTRIBUTING.md)** - Complete guide for contributors
+
+**Key areas where you can help:**
+- **Type Stub Improvements**: Enhance IDE support and type checking
+- **Documentation**: Add examples and usage guides  
+- **Testing**: Cross-platform validation and edge cases
+- **Bug Reports**: Help us improve reliability
+
+## Relationship to OpenSim
+
+pyopensim is built on top of the official [OpenSim](https://github.com/opensim-org/opensim-core) project:
+
+- **Same API**: Identical to the official OpenSim Python bindings
+- **Same Functionality**: Full access to all OpenSim features and capabilities
+- **Regular Updates**: Tracks OpenSim releases to provide latest features
+- **Community Driven**: Developed by and for the OpenSim user community
+
+For the official distribution, see the [opensim conda package](https://anaconda.org/opensim-org/opensim).
 
 ## Development
 
-This project builds OpenSim from source to create self-contained Python wheels. The build process includes compiling OpenSim's C++ libraries and generating SWIG Python bindings.
+This project builds OpenSim from source to create self-contained Python wheels:
+
+```bash
+# Clone the repository
+git clone https://github.com/neurobionics/pyopensim.git
+cd pyopensim
+
+# Build OpenSim and dependencies
+make setup
+
+# Build Python wheels
+make build
+```
+
+The build process includes:
+- Compiling OpenSim's C++ libraries and dependencies
+- Generating SWIG Python bindings
+- Creating comprehensive type stubs for IDE support
+- Bundling everything into portable wheels
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+OpenSim is licensed under the Apache License 2.0. See the [OpenSim license](https://github.com/opensim-org/opensim-core/blob/main/LICENSE.txt) for details.
+
+## Issues
+
+If you encounter any issues or have questions regarding pyopensim, please open an issue [here](https://github.com/neurobionics/pyopensim/issues).
+
+## Community & Support
+
+- **[Report Issues](https://github.com/neurobionics/pyopensim/issues)** - Bug reports and feature requests
+- **[Discussions](https://github.com/neurobionics/pyopensim/discussions)** - Questions and community support
+- **[OpenSim Documentation](https://simtk-confluence.stanford.edu/display/OpenSim/Documentation)** - Official OpenSim resources
+- **[OpenSim Website](https://opensim.stanford.edu/)** - Main OpenSim project
