@@ -276,7 +276,11 @@ jobs:
             echo "=== Repairing macOS wheel ===" &&
             OPENSIM_INSTALL="$(pwd)/opensim-cache/macos-universal2/opensim-install" &&
             DYLD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib" delocate-wheel -w {dest_dir} -v {wheel}
-          CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair -w {dest_dir} {wheel}
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            echo "=== Repairing Linux wheel ===" &&
+            OPENSIM_INSTALL="/host$(pwd)/opensim-cache/linux-$(uname -m)/opensim-install" &&
+            DEPS_INSTALL="/host$(pwd)/opensim-cache/linux-$(uname -m)/dependencies-install" &&
+            LD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib:$DEPS_INSTALL/ezc3d/lib:$DEPS_INSTALL/lib:$LD_LIBRARY_PATH" auditwheel repair -w {dest_dir} {wheel}
 
       - name: Verify clean directory
         run: git diff --exit-code
