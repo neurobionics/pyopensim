@@ -29,6 +29,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest"]
+build = ["cibuildwheel"]
 
 
 [tool.scikit-build]

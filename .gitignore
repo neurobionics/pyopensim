@@ -208,3 +208,5 @@ __marimo__/
 
 # OpenSim
 /examples/*.osim
+
+/wheelhouse

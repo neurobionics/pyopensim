@@ -62,14 +62,14 @@ jobs:
           echo "matrix={\"include\":$(echo $matrix)}" >> $GITHUB_OUTPUT
 
 
-  build_opensim:
-    name: Build OpenSim on ${{ matrix.os }}
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: matrix_prep
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix_prep.outputs.matrix) }}
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,134 +83,17 @@ jobs:
           echo "OpenSim Core SHA: $OPENSIM_SHA"
         shell: bash
 
+
+      # Cache OpenSim build per container environment and architecture
       - name: Cache OpenSim build
-        id: cache-opensim
         uses: actions/cache@v4
         with:
           path: |
-            build/opensim-workspace
-          key: opensim-${{ matrix.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}
+            opensim-cache
+          key: opensim-${{ matrix.os }}-${{ runner.arch }}-${{ steps.opensim-sha.outputs.opensim_sha }}-v3
           restore-keys: |
-            opensim-${{ matrix.os }}-
-
-      - name: Setup system dependencies  
-        if: steps.cache-opensim.outputs.cache-hit != 'true'
-        run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y cmake git libpcre2-dev libpcre3-dev
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            brew install cmake git
-          fi
-        shell: bash
-
-      - name: Build OpenSim dependencies
-        if: steps.cache-opensim.outputs.cache-hit != 'true'
-        run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            chmod +x ./scripts/opensim/setup_opensim_linux.sh && ./scripts/opensim/setup_opensim_linux.sh
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            chmod +x ./scripts/opensim/setup_opensim_macos.sh && ./scripts/opensim/setup_opensim_macos.sh
-          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            powershell.exe -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
-          fi
-        shell: bash
-
-  build_wheels:
-    name: Build wheels on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    needs: [matrix_prep, build_opensim]
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.matrix_prep.outputs.matrix) }}
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: Get OpenSim Core submodule SHA
-        id: opensim-sha
-        run: |
-          OPENSIM_SHA=$(git rev-parse HEAD:src/opensim-core)
-          echo "opensim_sha=$OPENSIM_SHA" >> $GITHUB_OUTPUT
-          echo "OpenSim Core SHA: $OPENSIM_SHA"
-        shell: bash
-
-      - name: Restore OpenSim build cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            build/opensim-workspace
-          key: opensim-${{ matrix.os }}-${{ steps.opensim-sha.outputs.opensim_sha }}
-          restore-keys: |
-            opensim-${{ matrix.os }}-
-
-      - name: Verify cache and clean build artifacts
-        run: |
-          echo "=== Verifying cached OpenSim installation ==="
-          if [ -d "build/opensim-workspace" ]; then
-            echo "✓ opensim-workspace directory exists"
-            ls -la build/opensim-workspace/
-            if [ -d "build/opensim-workspace/opensim-install" ]; then
-              echo "✓ opensim-install directory exists"
-              ls -la build/opensim-workspace/opensim-install/
-              if [ -d "build/opensim-workspace/opensim-install/sdk/lib" ]; then
-                echo "✓ SDK lib directory exists, contents:"
-                ls -la build/opensim-workspace/opensim-install/sdk/lib/
-              else
-                echo "✗ SDK lib directory missing"
-              fi
-            else
-              echo "✗ opensim-install directory missing"
-            fi
-            if [ -f "$HOME/swig/bin/swig" ]; then
-              echo "✓ Cached SWIG found at $HOME/swig/bin/swig"
-              "$HOME/swig/bin/swig" -version
-            else
-              echo "✗ Cached SWIG not found at $HOME/swig/bin/swig"
-              # Try to find SWIG elsewhere
-              find build/opensim-workspace -name "swig" -type f 2>/dev/null || echo "No swig executable found in workspace"
-            fi
-          else
-            echo "✗ opensim-workspace directory missing"
-          fi
-          
-          echo "=== Cleaning build artifacts to prevent linking conflicts ==="
-          # Remove .o, .pyc files and Python cache directories
-          find . -name "*.o" -delete 2>/dev/null || true
-          find . -name "*.pyc" -delete 2>/dev/null || true
-          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-          # Clean any Python build directories that might have been created
-          rm -rf build/temp* build/lib* build/bdist* 2>/dev/null || true
-          
-          # Clean opensim-workspace build artifacts but preserve the installed libraries
-          if [ -d "build/opensim-workspace" ]; then
-            echo "Cleaning opensim-workspace build artifacts..."
-            # CRITICAL: Only remove .so files from BUILD directories, NOT install directories
-            # Remove intermediate .so files from build directories only
-            rm -f build/opensim-workspace/opensim-build/lib*.so* 2>/dev/null || true
-            rm -f build/opensim-workspace/dependencies-build/simbody/build/lib*.so* 2>/dev/null || true  
-            rm -f build/opensim-workspace/dependencies-build/ezc3d/build/lib*.so* 2>/dev/null || true
-            
-            # Remove object files and CMake cache
-            find build/opensim-workspace -name "*.o" -delete 2>/dev/null || true
-            find build/opensim-workspace -name "CMakeFiles" -type d -exec rm -rf {} + 2>/dev/null || true
-            find build/opensim-workspace -name "CMakeCache.txt" -delete 2>/dev/null || true
-            
-            # Clean specific build directories that can cause conflicts
-            rm -rf build/opensim-workspace/opensim-build/CMakeFiles 2>/dev/null || true
-            rm -rf build/opensim-workspace/dependencies-build/*/CMakeFiles 2>/dev/null || true
-            rm -rf build/opensim-workspace/dependencies-build/*/build/CMakeFiles 2>/dev/null || true
-            
-            # PRESERVE these critical directories with installed libraries:
-            # - build/opensim-workspace/opensim-install/sdk/lib/
-            # - build/opensim-workspace/opensim-install/sdk/Simbody/lib/
-            # - build/opensim-workspace/dependencies-install/simbody/lib/
-            echo "✓ Preserved installed libraries in opensim-install/ and dependencies-install/"
-          fi
-          echo "Build artifact cleanup completed"
-        shell: bash
+            opensim-${{ matrix.os }}-${{ runner.arch }}-${{ steps.opensim-sha.outputs.opensim_sha }}-
+            opensim-${{ matrix.os }}-${{ runner.arch }}-
 
       - uses: pypa/cibuildwheel@v3.1.3
         env:
@@ -224,33 +107,135 @@ jobs:
           CIBW_MANYLINUX_PPC64LE_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_S390X_IMAGE: manylinux_2_28
           CIBW_TEST_SKIP: "*linux*"
-          # Install specific SWIG version 4.1.1 for compatibility
+          OPENSIM_SHA: ${{ steps.opensim-sha.outputs.opensim_sha }}
+          
+          # Linux: Build OpenSim inside manylinux container
           CIBW_BEFORE_BUILD_LINUX: >
-            dnf install -y pcre-devel pcre2-devel autoconf automake libtool &&
-            curl -L https://github.com/swig/swig/archive/v4.1.1.tar.gz | tar xz &&
-            cd swig-4.1.1 &&
-            ./autogen.sh &&
-            ./configure --prefix=/usr/local &&
-            make -j$(nproc) &&
-            make install &&
-            cd .. &&
-            rm -rf swig-4.1.1 &&
+            echo "=== Building OpenSim inside manylinux container ===" &&
+            CACHE_DIR="/host$(pwd)/opensim-cache/linux-$(uname -m)" &&
+            OPENSIM_INSTALL="$CACHE_DIR/opensim-install" &&
+            if [ -d "$OPENSIM_INSTALL" ] && [ -f "$OPENSIM_INSTALL/.build_complete" ]; then
+              echo "✓ Using cached OpenSim build from $OPENSIM_INSTALL" &&
+              ls -la "$OPENSIM_INSTALL/sdk/lib/" || true;
+            else
+              echo "Building OpenSim from scratch..." &&
+              dnf install -y gcc gcc-c++ make cmake autoconf automake libtool pkgconfig openblas-devel lapack-devel freeglut-devel libXi-devel libXmu-devel python3-devel git openssl-devel pcre-devel pcre2-devel gcc-gfortran patchelf java-1.8.0-openjdk-devel wget bison byacc &&
+              mkdir -p "$CACHE_DIR" &&
+              cd "$CACHE_DIR" &&
+              curl -L https://github.com/swig/swig/archive/v4.1.1.tar.gz | tar xz &&
+              cd swig-4.1.1 &&
+              ./autogen.sh &&
+              ./configure --prefix="$CACHE_DIR/swig" &&
+              make -j$(nproc) &&
+              make install &&
+              cd .. &&
+              rm -rf swig-4.1.1 &&
+              export PATH="$CACHE_DIR/swig/bin:$PATH" &&
+              mkdir -p dependencies-build &&
+              cd dependencies-build &&
+              cmake "/host$(pwd)/src/opensim-core/dependencies" -DCMAKE_INSTALL_PREFIX="$CACHE_DIR/dependencies-install" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-pthread -fPIC" -DCMAKE_C_FLAGS="-pthread -fPIC" -DSUPERBUILD_ezc3d=ON -DOPENSIM_WITH_CASADI=OFF &&
+              cmake --build . --config Release -j$(nproc) &&
+              cd .. &&
+              mkdir -p opensim-build &&
+              cd opensim-build &&
+              cmake "/host$(pwd)/src/opensim-core" -DCMAKE_INSTALL_PREFIX="$OPENSIM_INSTALL" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-pthread -Wno-array-bounds -fPIC" -DCMAKE_C_FLAGS="-pthread -fPIC" -DCMAKE_EXE_LINKER_FLAGS="-pthread" -DCMAKE_SHARED_LINKER_FLAGS="-pthread" -DOPENSIM_DEPENDENCIES_DIR="$CACHE_DIR/dependencies-install" -DCMAKE_PREFIX_PATH="$CACHE_DIR/dependencies-install" -DBUILD_JAVA_WRAPPING=OFF -DBUILD_PYTHON_WRAPPING=OFF -DBUILD_TESTING=OFF -DBUILD_API_EXAMPLES=OFF -DOPENSIM_C3D_PARSER=ezc3d -DOPENSIM_WITH_CASADI=OFF -DOPENSIM_WITH_TROPTER=OFF -DOPENSIM_WITH_MOCO=OFF -DOPENSIM_INSTALL_UNIX_FHS=OFF -DSWIG_DIR="$CACHE_DIR/swig/share/swig" -DSWIG_EXECUTABLE="$CACHE_DIR/swig/bin/swig" &&
+              cmake --build . --config Release -j$(nproc) &&
+              cmake --install . &&
+              touch "$OPENSIM_INSTALL/.build_complete" &&
+              echo "✓ OpenSim build complete";
+            fi &&
+            echo "Setting up build environment..." &&
+            export PATH="$CACHE_DIR/swig/bin:$PATH" &&
+            export OPENSIM_INSTALL_DIR="$OPENSIM_INSTALL" &&
             swig -version
+            
+          # macOS: Build OpenSim natively  
+          CIBW_BEFORE_BUILD_MACOS: >
+            echo "=== Building OpenSim for macOS ===" &&
+            CACHE_DIR="$(pwd)/opensim-cache/macos-universal2" &&
+            OPENSIM_INSTALL="$CACHE_DIR/opensim-install" &&
+            if [ -d "$OPENSIM_INSTALL" ] && [ -f "$OPENSIM_INSTALL/.build_complete" ]; then
+              echo "✓ Using cached OpenSim build from $OPENSIM_INSTALL";
+            else
+              echo "Building OpenSim from scratch..." &&
+              brew install cmake autoconf automake libtool pkgconfig &&
+              mkdir -p "$CACHE_DIR" &&
+              cd "$CACHE_DIR" &&
+              curl -L https://github.com/swig/swig/archive/v4.1.1.tar.gz | tar xz &&
+              cd swig-4.1.1 &&
+              ./autogen.sh &&
+              ./configure --prefix="$CACHE_DIR/swig" &&
+              make -j$(sysctl -n hw.ncpu) &&
+              make install &&
+              cd .. &&
+              rm -rf swig-4.1.1 &&
+              export PATH="$CACHE_DIR/swig/bin:$PATH" &&
+              mkdir -p dependencies-build &&
+              cd dependencies-build &&
+              cmake "$(pwd)/../../src/opensim-core/dependencies" -DCMAKE_INSTALL_PREFIX="$CACHE_DIR/dependencies-install" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 -DSUPERBUILD_ezc3d=ON -DOPENSIM_WITH_CASADI=OFF &&
+              cmake --build . --config Release -j$(sysctl -n hw.ncpu) &&
+              cd .. &&
+              mkdir -p opensim-build &&
+              cd opensim-build &&
+              cmake "$(pwd)/../../src/opensim-core" -DCMAKE_INSTALL_PREFIX="$OPENSIM_INSTALL" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 -DOPENSIM_DEPENDENCIES_DIR="$CACHE_DIR/dependencies-install" -DCMAKE_PREFIX_PATH="$CACHE_DIR/dependencies-install" -DBUILD_JAVA_WRAPPING=OFF -DBUILD_PYTHON_WRAPPING=OFF -DBUILD_TESTING=OFF -DBUILD_API_EXAMPLES=OFF -DOPENSIM_C3D_PARSER=ezc3d -DOPENSIM_WITH_CASADI=OFF -DOPENSIM_WITH_TROPTER=OFF -DOPENSIM_WITH_MOCO=OFF -DOPENSIM_INSTALL_UNIX_FHS=OFF -DSWIG_DIR="$CACHE_DIR/swig/share/swig" -DSWIG_EXECUTABLE="$CACHE_DIR/swig/bin/swig" &&
+              cmake --build . --config Release -j$(sysctl -n hw.ncpu) &&
+              cmake --install . &&
+              touch "$OPENSIM_INSTALL/.build_complete" &&
+              echo "✓ OpenSim build complete";
+            fi &&
+            export PATH="$CACHE_DIR/swig/bin:$PATH" &&
+            export OPENSIM_INSTALL_DIR="$OPENSIM_INSTALL"
+            
+          # Windows: Build OpenSim natively (PowerShell) 
+          CIBW_BEFORE_BUILD_WINDOWS: >
+            Write-Host "=== Building OpenSim for Windows ===" ;
+            $CACHE_DIR = "$(pwd)/opensim-cache/windows-$($env:PROCESSOR_ARCHITECTURE)" ;
+            $OPENSIM_INSTALL = "$CACHE_DIR/opensim-install" ;
+            if ((Test-Path "$OPENSIM_INSTALL") -and (Test-Path "$OPENSIM_INSTALL/.build_complete")) {
+              Write-Host "✓ Using cached OpenSim build from $OPENSIM_INSTALL" ;
+            } else {
+              Write-Host "Building OpenSim from scratch..." ;
+              New-Item -ItemType Directory -Force -Path "$CACHE_DIR" ;
+              Set-Location "$CACHE_DIR" ;
+              Write-Host "Downloading precompiled SWIG for Windows..." ;
+              Invoke-WebRequest -Uri "http://prdownloads.sourceforge.net/swig/swigwin-4.1.1.zip" -OutFile "swig.zip" ;
+              Expand-Archive -Path "swig.zip" -DestinationPath "." ;
+              Move-Item "swigwin-4.1.1" "swig" ;
+              Remove-Item "swig.zip" ;
+              $env:PATH = "$CACHE_DIR/swig;$env:PATH" ;
+              New-Item -ItemType Directory -Force -Path dependencies-build ;
+              Set-Location dependencies-build ;
+              cmake "$(pwd)/../../src/opensim-core/dependencies" -DCMAKE_INSTALL_PREFIX="$CACHE_DIR/dependencies-install" -DCMAKE_BUILD_TYPE=Release -DSUPERBUILD_ezc3d=ON -DOPENSIM_WITH_CASADI=OFF ;
+              cmake --build . --config Release -j$([Environment]::ProcessorCount) ;
+              Set-Location .. ;
+              New-Item -ItemType Directory -Force -Path opensim-build ;
+              Set-Location opensim-build ;
+              cmake "$(pwd)/../../src/opensim-core" -DCMAKE_INSTALL_PREFIX="$OPENSIM_INSTALL" -DCMAKE_BUILD_TYPE=Release -DOPENSIM_DEPENDENCIES_DIR="$CACHE_DIR/dependencies-install" -DCMAKE_PREFIX_PATH="$CACHE_DIR/dependencies-install" -DBUILD_JAVA_WRAPPING=OFF -DBUILD_PYTHON_WRAPPING=OFF -DBUILD_TESTING=OFF -DBUILD_API_EXAMPLES=OFF -DOPENSIM_C3D_PARSER=ezc3d -DOPENSIM_WITH_CASADI=OFF -DOPENSIM_WITH_TROPTER=OFF -DOPENSIM_WITH_MOCO=OFF -DOPENSIM_INSTALL_UNIX_FHS=OFF -DSWIG_DIR="$CACHE_DIR/swig/Lib" -DSWIG_EXECUTABLE="$CACHE_DIR/swig/swig.exe" ;
+              cmake --build . --config Release -j$([Environment]::ProcessorCount) ;
+              cmake --install . ;
+              New-Item -ItemType File -Force -Path "$OPENSIM_INSTALL/.build_complete" ;
+              Write-Host "✓ OpenSim build complete" ;
+            } ;
+            $env:PATH = "$CACHE_DIR/swig;$env:PATH" ;
+            $env:OPENSIM_INSTALL_DIR = "$OPENSIM_INSTALL"
+
+          # Environment variables for build
           CIBW_ENVIRONMENT_MACOS: >
             MACOSX_DEPLOYMENT_TARGET=14.0 
             CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
-            REPAIR_LIBRARY_PATH=./build/opensim-workspace/opensim-install/sdk/Simbody/lib
+            OPENSIM_INSTALL_DIR="$(pwd)/opensim-cache/macos-universal2/opensim-install"
           CIBW_ENVIRONMENT_LINUX: >
-            PATH=/usr/local/bin:$PATH
-            SWIG_EXECUTABLE=/usr/local/bin/swig
-            SWIG_DIR=/usr/local/share/swig
-            LD_LIBRARY_PATH=/host$(pwd)/build/opensim-workspace/opensim-install/sdk/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/Simbody/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/simbody/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/ezc3d/lib64:/host$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib:/host$(pwd)/build/opensim-workspace/dependencies-install/spdlog/lib64:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib:/host$(pwd)/build/opensim-workspace/opensim-install/sdk/spdlog/lib64
+            PATH="/host$(pwd)/opensim-cache/linux-$(uname -m)/swig/bin:$PATH"
+            OPENSIM_INSTALL_DIR="/host$(pwd)/opensim-cache/linux-$(uname -m)/opensim-install"
+          CIBW_ENVIRONMENT_WINDOWS: >
+            PATH="$(pwd)/opensim-cache/windows-$($env:PROCESSOR_ARCHITECTURE)/swig;$env:PATH"
+            OPENSIM_INSTALL_DIR="$(pwd)/opensim-cache/windows-$($env:PROCESSOR_ARCHITECTURE)/opensim-install"
+            
+          # Repair wheel commands 
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
-            echo "=== Architecture Check ===" &&
-            file ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTKmath.3.8.dylib &&
-            file ./build/opensim-workspace/opensim-install/sdk/Simbody/lib/libSimTKsimbody.3.8.dylib &&
-            echo "=== Delocating Wheel ===" &&
-            DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-wheel -w {dest_dir} -v {wheel}
+            echo "=== Repairing macOS wheel ===" &&
+            OPENSIM_INSTALL="$(pwd)/opensim-cache/macos-universal2/opensim-install" &&
+            DYLD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib" delocate-wheel -w {dest_dir} -v {wheel}
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair -w {dest_dir} {wheel}
 
       - name: Verify clean directory
