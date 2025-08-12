@@ -19,6 +19,11 @@ on:
         required: false
         default: true
         type: boolean
+      force_rebuild_cache:
+        description: 'Force rebuild OpenSim cache (ignores existing cache)'
+        required: false
+        default: false
+        type: boolean
   # pull_request:
   # push:
   #   branches:
@@ -90,7 +95,7 @@ jobs:
         with:
           path: |
             opensim-cache
-          key: opensim-${{ matrix.os }}-${{ runner.arch }}-${{ steps.opensim-sha.outputs.opensim_sha }}-v3
+          key: opensim-${{ matrix.os }}-${{ runner.arch }}-${{ steps.opensim-sha.outputs.opensim_sha }}-v3${{ inputs.force_rebuild_cache && '-rebuild' || '' }}
           restore-keys: |
             opensim-${{ matrix.os }}-${{ runner.arch }}-${{ steps.opensim-sha.outputs.opensim_sha }}-
             opensim-${{ matrix.os }}-${{ runner.arch }}-
