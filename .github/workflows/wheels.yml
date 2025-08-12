@@ -280,14 +280,13 @@ jobs:
             echo "=== Repairing Linux wheel ===" &&
             OPENSIM_INSTALL="/host$(pwd)/opensim-cache/linux-$(uname -m)/opensim-install" &&
             DEPS_INSTALL="/host$(pwd)/opensim-cache/linux-$(uname -m)/dependencies-install" &&
-            echo "DEBUG: Searching for libezc3d.so..." &&
-            find "$OPENSIM_INSTALL" -name "*ezc3d*" -type f 2>/dev/null || echo "No ezc3d files in OPENSIM_INSTALL" &&
-            find "$DEPS_INSTALL" -name "*ezc3d*" -type f 2>/dev/null || echo "No ezc3d files in DEPS_INSTALL" &&
-            echo "DEBUG: Listing OPENSIM_INSTALL/sdk/lib:" &&
-            ls -la "$OPENSIM_INSTALL/sdk/lib/" 2>/dev/null || echo "OPENSIM_INSTALL/sdk/lib not found" &&
-            echo "DEBUG: Listing DEPS_INSTALL structure:" &&
-            ls -la "$DEPS_INSTALL/" 2>/dev/null || echo "DEPS_INSTALL not found" &&
-            LD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib:$DEPS_INSTALL/ezc3d/lib:$DEPS_INSTALL/lib:$LD_LIBRARY_PATH" auditwheel repair -w {dest_dir} {wheel}
+            echo "Available .so files in dependencies:" &&
+            find "$DEPS_INSTALL" -name "*.so*" -type f 2>/dev/null | head -20 &&
+            echo "Available .so files in OpenSim:" &&
+            find "$OPENSIM_INSTALL" -name "*.so*" -type f 2>/dev/null | head -20 &&
+            echo "Library paths being used:" &&
+            echo "  LD_LIBRARY_PATH=$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib:$DEPS_INSTALL/simbody/lib:$DEPS_INSTALL/ezc3d/lib64:$DEPS_INSTALL/ezc3d/lib:$DEPS_INSTALL/spdlog/lib64:$DEPS_INSTALL/spdlog/lib:$DEPS_INSTALL/lib64:$DEPS_INSTALL/lib" &&
+            LD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib:$DEPS_INSTALL/simbody/lib:$DEPS_INSTALL/ezc3d/lib64:$DEPS_INSTALL/ezc3d/lib:$DEPS_INSTALL/spdlog/lib64:$DEPS_INSTALL/spdlog/lib:$DEPS_INSTALL/lib64:$DEPS_INSTALL/lib:$LD_LIBRARY_PATH" auditwheel repair -w {dest_dir} {wheel}
 
       - name: Verify clean directory
         run: git diff --exit-code
