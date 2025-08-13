@@ -5,19 +5,6 @@ Portable Python bindings for [OpenSim](https://opensim.stanford.edu/) with compr
 [![PyPI version](https://badge.fury.io/py/pyopensim.svg)](https://badge.fury.io/py/pyopensim)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-## Why pyopensim?
-
-While the OpenSim team provides excellent [conda packages](https://anaconda.org/opensim-org/opensim), pyopensim offers complementary benefits for specific use cases:
-
-**PyPI Integration**: Available through standard `pip install` for seamless integration with PyPI-based workflows
-
-**Enhanced IDE Support**: Comprehensive type hints (`.pyi` stubs) provide excellent autocomplete, type checking, and documentation in modern IDEs
-
-**Wheel Distribution**: Self-contained wheels make it easy to bundle OpenSim with your applications without requiring users to manage conda environments
-
-**Flexible Deployment**: Works well in environments where conda isn't preferred (Docker containers, serverless, CI/CD pipelines)
-
-
 ## Key Features
 
 - **Portable**: Self-contained Python wheels with bundled OpenSim libraries
@@ -25,7 +12,6 @@ While the OpenSim team provides excellent [conda packages](https://anaconda.org/
 - **Cross-Platform**: Native support for Windows (work in progress), macOS, and Linux
 - **Official Bindings**: Uses OpenSim's native SWIG bindings for full API compatibility
 - **PyPI Ready**: Simple `pip install` - integrates with standard Python packaging
-
 
 ## Installation
 
@@ -36,6 +22,15 @@ pip install pyopensim
 ```
 
 No additional setup required! All OpenSim libraries are bundled in the wheel.
+
+## Why pyopensim?
+
+While the OpenSim team provides excellent [conda packages](https://anaconda.org/opensim-org/opensim), pyopensim offers complementary benefits for specific use cases:
+
+- **PyPI Integration**: Available through standard `pip install` for seamless integration with PyPI-based workflows
+- **Enhanced IDE Support**: Comprehensive type hints (`.pyi` stubs) provide excellent autocomplete, type checking, and documentation in modern IDEs
+- **Wheel Distribution**: Self-contained wheels make it easy to bundle OpenSim with your applications without requiring users to manage conda environments
+- **Flexible Deployment**: Works well in environments where conda isn't preferred (Docker containers, serverless, CI/CD pipelines)
 
 ## Quick Start
 
@@ -114,9 +109,8 @@ The build process includes:
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
-
-OpenSim is licensed under the Apache License 2.0. See the [OpenSim license](https://github.com/opensim-org/opensim-core/blob/main/LICENSE.txt) for details.
+This project is licensed under [Apache License 2.0](LICENSE). OpenSim is licensed under the Apache License 2.0.
+See the [OpenSim license](https://github.com/opensim-org/opensim-core/blob/main/LICENSE.txt) for details.
 
 ## Issues
 
@@ -127,4 +121,4 @@ If you encounter any issues or have questions regarding pyopensim, please open a
 - **[Report Issues](https://github.com/neurobionics/pyopensim/issues)** - Bug reports and feature requests
 - **[Discussions](https://github.com/neurobionics/pyopensim/discussions)** - Questions and community support
 - **[OpenSim Documentation](https://simtk-confluence.stanford.edu/display/OpenSim/Documentation)** - Official OpenSim resources
-- **[OpenSim Website](https://opensim.stanford.edu/)** - Main OpenSim project
+- **[OpenSim Website](https://opensim.stanford.edu/)** - OpenSim project
