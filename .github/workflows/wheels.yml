@@ -89,6 +89,12 @@ jobs:
         shell: bash
 
 
+      # Ensure cache directory exists to prevent path validation errors
+      - name: Create cache directory structure
+        run: |
+          mkdir -p opensim-cache
+        shell: bash
+
       # Cache OpenSim build per container environment and architecture
       - name: Cache OpenSim build
         uses: actions/cache@v4
