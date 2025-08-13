@@ -1,4 +1,4 @@
-.PHONY: help test build check clean clean-all setup setup-opensim check-deps
+.PHONY: help cibw-test test build check clean clean-all setup setup-opensim check-deps
 
 # Platform detection for cross-platform development
 UNAME_S := $(shell uname -s 2>/dev/null || echo "Windows")
@@ -75,6 +75,10 @@ clean-all: ## Clean all artifacts
 	rm -rf *.egg-info/
 	find . -name "*.pyc" -delete
 	find . -name "__pycache__" -delete -type d
+
+cibw-test:
+	@echo "Running CIBW tests..."
+	./scripts/cibw_local_wheels.sh
 
 test: ## Run tests
 	python -m pytest tests

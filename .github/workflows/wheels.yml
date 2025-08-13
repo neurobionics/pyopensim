@@ -118,7 +118,6 @@ jobs:
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_PPC64LE_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_S390X_IMAGE: manylinux_2_28
-          CIBW_TEST_SKIP: "*linux*"
           OPENSIM_SHA: ${{ steps.opensim-sha.outputs.opensim_sha }}
           
           # Linux: Build OpenSim inside manylinux container
@@ -298,7 +297,7 @@ jobs:
             find "$OPENSIM_INSTALL" -name "*.so*" -type f 2>/dev/null | head -20 &&
             echo "Library paths being used:" &&
             echo "  LD_LIBRARY_PATH=$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib64:$OPENSIM_INSTALL/sdk/Simbody/lib:$DEPS_INSTALL/simbody/lib64:$DEPS_INSTALL/simbody/lib:$DEPS_INSTALL/ezc3d/lib64:$DEPS_INSTALL/ezc3d/lib:$DEPS_INSTALL/spdlog/lib64:$DEPS_INSTALL/spdlog/lib:$DEPS_INSTALL/lib64:$DEPS_INSTALL/lib" &&
-            LD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib64:$OPENSIM_INSTALL/sdk/Simbody/lib:$DEPS_INSTALL/simbody/lib64:$DEPS_INSTALL/simbody/lib:$DEPS_INSTALL/ezc3d/lib64:$DEPS_INSTALL/ezc3d/lib:$DEPS_INSTALL/spdlog/lib64:$DEPS_INSTALL/spdlog/lib:$DEPS_INSTALL/lib64:$DEPS_INSTALL/lib:$LD_LIBRARY_PATH" auditwheel repair -w {dest_dir} {wheel}
+            LD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib64:$OPENSIM_INSTALL/sdk/Simbody/lib:$DEPS_INSTALL/simbody/lib64:$DEPS_INSTALL/simbody/lib:$DEPS_INSTALL/ezc3d/lib64:$DEPS_INSTALL/ezc3d/lib:$DEPS_INSTALL/spdlog/lib64:$DEPS_INSTALL/spdlog/lib:$DEPS_INSTALL/lib64:$DEPS_INSTALL/lib:$LD_LIBRARY_PATH" auditwheel repair --exclude libSimTKcommon.so.3.8 --exclude libSimTKmath.so.3.8 --exclude libSimTKsimbody.so.3.8 -w {dest_dir} {wheel}
 
       - name: Verify clean directory
         run: git diff --exit-code
