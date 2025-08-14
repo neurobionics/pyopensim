@@ -248,6 +248,8 @@ jobs:
               echo "Building OpenSim from scratch..." &&
               if not exist "%CACHE_DIR%" mkdir "%CACHE_DIR%" &&
               cd /d "%CACHE_DIR%" &&
+              echo "Setting up Visual Studio environment..." &&
+              call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
               echo "Downloading precompiled SWIG for Windows..." &&
               powershell -Command "Invoke-WebRequest -Uri 'http://prdownloads.sourceforge.net/swig/swigwin-4.1.1.zip' -OutFile 'swig.zip'" &&
               powershell -Command "Expand-Archive -Path 'swig.zip' -DestinationPath '.'" &&
@@ -298,6 +300,11 @@ jobs:
             echo "Library paths being used:" &&
             echo "  LD_LIBRARY_PATH=$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib64:$OPENSIM_INSTALL/sdk/Simbody/lib:$DEPS_INSTALL/simbody/lib64:$DEPS_INSTALL/simbody/lib:$DEPS_INSTALL/ezc3d/lib64:$DEPS_INSTALL/ezc3d/lib:$DEPS_INSTALL/spdlog/lib64:$DEPS_INSTALL/spdlog/lib:$DEPS_INSTALL/lib64:$DEPS_INSTALL/lib" &&
             LD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib64:$OPENSIM_INSTALL/sdk/Simbody/lib:$DEPS_INSTALL/simbody/lib64:$DEPS_INSTALL/simbody/lib:$DEPS_INSTALL/ezc3d/lib64:$DEPS_INSTALL/ezc3d/lib:$DEPS_INSTALL/spdlog/lib64:$DEPS_INSTALL/spdlog/lib:$DEPS_INSTALL/lib64:$DEPS_INSTALL/lib:$LD_LIBRARY_PATH" auditwheel repair --exclude libSimTKcommon.so.3.8 --exclude libSimTKmath.so.3.8 --exclude libSimTKsimbody.so.3.8 -w {dest_dir} {wheel}
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
+            echo "=== Repairing Windows wheel ===" &&
+            set "OPENSIM_INSTALL=$(pwd)/opensim-cache/windows-AMD64/opensim-install" &&
+            set "PATH=%OPENSIM_INSTALL%\sdk\lib;%OPENSIM_INSTALL%\sdk\Simbody\lib;%PATH%" &&
+            delvewheel repair --add-path "%OPENSIM_INSTALL%\sdk\lib" --add-path "%OPENSIM_INSTALL%\sdk\Simbody\lib" -w {dest_dir} {wheel}
 
       - name: Verify clean directory
         run: git diff --exit-code
