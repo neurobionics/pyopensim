@@ -240,7 +240,7 @@ jobs:
           CIBW_BEFORE_BUILD_WINDOWS: >
             Write-Host "=== Building OpenSim for Windows ===" ;
             $PROJECT_ROOT = "$(pwd)" ;
-            $CACHE_DIR = "$PROJECT_ROOT/opensim-cache/windows-$($env:PROCESSOR_ARCHITECTURE)" ;
+            $CACHE_DIR = "$PROJECT_ROOT/opensim-cache/windows-AMD64" ;
             $OPENSIM_INSTALL = "$CACHE_DIR/opensim-install" ;
             if ((Test-Path "$OPENSIM_INSTALL") -and (Test-Path "$OPENSIM_INSTALL/.build_complete")) {
               Write-Host "✓ Using cached OpenSim build from $OPENSIM_INSTALL" ;
@@ -279,8 +279,8 @@ jobs:
             PATH="/host$(pwd)/opensim-cache/linux-$(uname -m)/swig/bin:$PATH"
             OPENSIM_INSTALL_DIR="/host$(pwd)/opensim-cache/linux-$(uname -m)/opensim-install"
           CIBW_ENVIRONMENT_WINDOWS: >
-            PATH="$(pwd)/opensim-cache/windows-$($env:PROCESSOR_ARCHITECTURE)/swig;$env:PATH"
-            OPENSIM_INSTALL_DIR="$(pwd)/opensim-cache/windows-$($env:PROCESSOR_ARCHITECTURE)/opensim-install"
+            PATH="$(pwd)/opensim-cache/windows-AMD64/swig;$PATH"
+            OPENSIM_INSTALL_DIR="$(pwd)/opensim-cache/windows-AMD64/opensim-install"
             
           # Repair wheel commands 
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
