@@ -9,10 +9,10 @@ param (
 
 # Configuration - use environment variables if set, otherwise use defaults
 $DEBUG_TYPE = if ($env:CMAKE_BUILD_TYPE) { $env:CMAKE_BUILD_TYPE } else { "Release" }
-$NUM_JOBS = if ($env:CMAKE_BUILD_PARALLEL_LEVEL) { [int]$env:CMAKE_BUILD_PARALLEL_LEVEL } else { 2 }
+$NUM_JOBS = if ($env:CMAKE_BUILD_PARALLEL_LEVEL) { [int]$env:CMAKE_BUILD_PARALLEL_LEVEL } else { 4 }
 $OPENSIM_ROOT = Get-Location
 $WORKSPACE_DIR = "$OPENSIM_ROOT\build\opensim-workspace"
-$MOCO = "off"  # Default MOCO setting
+$MOCO = "off"  # Default MOCO setting (disabled for compatibility)
 
 function Help {
     Write-Output "Setting up OpenSim with build type $DEBUG_TYPE, using $NUM_JOBS parallel jobs."
@@ -32,7 +32,7 @@ if ($h) {
 if ($s) {
     $MOCO = "off"
 } else {
-    $MOCO = "on"
+    $MOCO = "off"  # Force disable MOCO to avoid spdlog linking issues
 }
 if ($d -ne "Release" -and $d -ne "Debug" -and $d -ne "RelWithDebInfo" -and $d -ne "MinSizeRel") {
     Write-Error "Value for parameter -d not valid."
@@ -75,7 +75,7 @@ choco install visualstudio2022-workload-nativedesktop -y
 choco install visualstudio2022buildtools -y
 
 # Install cmake 3.23.2
-choco install cmake.install --version 3.23.3 --installargs '"ADD_CMAKE_TO_PATH=System"' -y
+choco install cmake.install --version 3.23.3 --installargs '"ADD_CMAKE_TO_PATH=System"' -y --force
 
 # Install dependencies of opensim-core
 choco install python3  -y

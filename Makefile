@@ -23,9 +23,8 @@ help: ## Show this help message
 
 check-deps: ## Check if system dependencies are available
 	@echo "Checking system dependencies..."
-	@cmake --version >nul 2>&1 || (echo cmake is required but not installed && exit 1)
 	@git --version >nul 2>&1 || (echo git is required but not installed && exit 1)
-	@uv --version >nul 2>&1 || (echo uv is required but not installed && exit 1)
+	@cmake --version >nul 2>&1 || (echo cmake is required but not installed)	
 	@echo "All required system dependencies are available"
 
 setup-opensim: ## Setup OpenSim dependencies if needed
@@ -40,10 +39,7 @@ else ifeq ($(PLATFORM),linux)
 	@./scripts/opensim/setup_opensim_linux.sh
 else ifeq ($(PLATFORM),windows)
 	@echo "Detected Windows, running Windows setup script..."
-	@echo "NOTE: The Windows setup script requires administrator privileges."
-	@echo "Please run PowerShell as Administrator and execute:"
-	@echo "  powershell -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1"
-	@echo "Then run 'make build' to build Python bindings."
+	@powershell -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
 else
 	@echo "Unsupported platform: $(PLATFORM)"
 	@echo "Please run the appropriate setup script manually:"

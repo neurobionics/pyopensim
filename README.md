@@ -30,7 +30,7 @@ While the OpenSim team provides excellent [conda packages](https://anaconda.org/
 - **PyPI Integration**: Available through standard `pip install` for seamless integration with PyPI-based workflows
 - **Enhanced IDE Support**: Comprehensive type hints (`.pyi` stubs) provide excellent autocomplete, type checking, and documentation in modern IDEs
 - **Wheel Distribution**: Self-contained wheels make it easy to bundle OpenSim with your applications without requiring users to manage conda environments
-- **Flexible Deployment**: Works well in environments where conda isn't preferred (Docker containers, serverless, CI/CD pipelines)
+- **Flexible Deployment**: Works well in environments where conda isn't preferred (Docker containers, CI/CD pipelines)
 
 ## Quick Start
 
@@ -76,14 +76,13 @@ We welcome contributions of all kinds! Whether you're fixing bugs, improving typ
 
 ## Relationship to OpenSim
 
-pyopensim is built on top of the official [OpenSim](https://github.com/opensim-org/opensim-core) project:
+pyopensim is an unofficial python package that is built on top of the official [OpenSim](https://github.com/opensim-org/opensim-core) project:
 
 - **Same API**: Identical to the official OpenSim Python bindings
 - **Same Functionality**: Full access to all OpenSim features and capabilities
 - **Regular Updates**: Tracks OpenSim releases to provide latest features
-- **Community Driven**: Developed by and for the OpenSim user community
 
-For the official distribution, see the [opensim conda package](https://anaconda.org/opensim-org/opensim).
+To use the official OpenSim conda package, checkout this [package](https://anaconda.org/opensim-org/opensim).
 
 ## Development
 
