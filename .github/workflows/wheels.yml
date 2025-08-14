@@ -112,6 +112,13 @@ jobs:
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_ARCHS_LINUX: x86_64
           CIBW_SKIP: "*musllinux*"
+          
+          # Build timeout configuration (2 hours for complex builds)
+          CIBW_BUILD_TIMEOUT: 7200
+          
+          # Use system tools instead of installing duplicates
+          CIBW_XBUILD_TOOLS: cmake
+          
           # Use manylinux_2_28 for broader compatibility while still having modern tooling
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_I686_IMAGE: manylinux_2_28  
@@ -251,20 +258,26 @@ jobs:
               echo "Setting up Visual Studio environment..." &&
               call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
               echo "Downloading precompiled SWIG for Windows..." &&
-              powershell -Command "Invoke-WebRequest -Uri 'http://prdownloads.sourceforge.net/swig/swigwin-4.1.1.zip' -OutFile 'swig.zip'" &&
-              powershell -Command "Expand-Archive -Path 'swig.zip' -DestinationPath '.'" &&
+              powershell -Command "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'http://prdownloads.sourceforge.net/swig/swigwin-4.1.1.zip' -OutFile 'swig.zip' -TimeoutSec 300" &&
+              powershell -Command "$ProgressPreference = 'SilentlyContinue'; Expand-Archive -Path 'swig.zip' -DestinationPath '.' -Force" &&
               move swigwin-4.1.1 swig &&
               del swig.zip &&
               set "PATH=%CACHE_DIR%\swig;%PATH%" &&
               if not exist dependencies-build mkdir dependencies-build &&
               cd dependencies-build &&
-              cmake "%PROJECT_ROOT%\src\opensim-core\dependencies" -DCMAKE_INSTALL_PREFIX="%CACHE_DIR%\dependencies-install" -DCMAKE_BUILD_TYPE=Release -DSUPERBUILD_ezc3d=ON -DOPENSIM_WITH_CASADI=OFF &&
-              cmake --build . --config Release -j%NUMBER_OF_PROCESSORS% &&
+              echo "Starting dependencies build..." &&
+              timeout /t 10 /nobreak >nul &&
+              cmake "%PROJECT_ROOT%\src\opensim-core\dependencies" -DCMAKE_INSTALL_PREFIX="%CACHE_DIR%\dependencies-install" -DCMAKE_BUILD_TYPE=Release -DSUPERBUILD_ezc3d=ON -DOPENSIM_WITH_CASADI=OFF -DCMAKE_CXX_FLAGS="/MP" -DCMAKE_C_FLAGS="/MP" &&
+              timeout /t 5 /nobreak >nul &&
+              cmake --build . --config Release -j%NUMBER_OF_PROCESSORS% --verbose &&
               cd .. &&
               if not exist opensim-build mkdir opensim-build &&
               cd opensim-build &&
-              cmake "%PROJECT_ROOT%\src\opensim-core" -DCMAKE_INSTALL_PREFIX="%OPENSIM_INSTALL%" -DCMAKE_BUILD_TYPE=Release -DOPENSIM_DEPENDENCIES_DIR="%CACHE_DIR%\dependencies-install" -DCMAKE_PREFIX_PATH="%CACHE_DIR%\dependencies-install" -DBUILD_JAVA_WRAPPING=OFF -DBUILD_PYTHON_WRAPPING=OFF -DBUILD_TESTING=OFF -DBUILD_API_EXAMPLES=OFF -DOPENSIM_C3D_PARSER=ezc3d -DOPENSIM_WITH_CASADI=OFF -DOPENSIM_WITH_TROPTER=OFF -DOPENSIM_WITH_MOCO=OFF -DOPENSIM_INSTALL_UNIX_FHS=OFF -DSWIG_DIR="%CACHE_DIR%\swig\Lib" -DSWIG_EXECUTABLE="%CACHE_DIR%\swig\swig.exe" &&
-              cmake --build . --config Release -j%NUMBER_OF_PROCESSORS% &&
+              echo "Starting OpenSim core build..." &&
+              timeout /t 10 /nobreak >nul &&
+              cmake "%PROJECT_ROOT%\src\opensim-core" -DCMAKE_INSTALL_PREFIX="%OPENSIM_INSTALL%" -DCMAKE_BUILD_TYPE=Release -DOPENSIM_DEPENDENCIES_DIR="%CACHE_DIR%\dependencies-install" -DCMAKE_PREFIX_PATH="%CACHE_DIR%\dependencies-install" -DBUILD_JAVA_WRAPPING=OFF -DBUILD_PYTHON_WRAPPING=OFF -DBUILD_TESTING=OFF -DBUILD_API_EXAMPLES=OFF -DOPENSIM_C3D_PARSER=ezc3d -DOPENSIM_WITH_CASADI=OFF -DOPENSIM_WITH_TROPTER=OFF -DOPENSIM_WITH_MOCO=OFF -DOPENSIM_INSTALL_UNIX_FHS=OFF -DSWIG_DIR="%CACHE_DIR%\swig\Lib" -DSWIG_EXECUTABLE="%CACHE_DIR%\swig\swig.exe" -DCMAKE_CXX_FLAGS="/MP" -DCMAKE_C_FLAGS="/MP" &&
+              timeout /t 5 /nobreak >nul &&
+              cmake --build . --config Release -j%NUMBER_OF_PROCESSORS% --verbose &&
               cmake --install . &&
               echo. > "%OPENSIM_INSTALL%\.build_complete" &&
               echo "OpenSim build complete"
@@ -309,6 +322,7 @@ jobs:
       - name: Verify clean directory
         run: git diff --exit-code
         shell: bash
+        timeout-minutes: 5
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
