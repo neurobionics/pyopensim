@@ -348,6 +348,13 @@ macro(OpenSimPutFileInPythonPackage source_full_path relative_dest_dir)
         DESTINATION "${CMAKE_INSTALL_PREFIX}/pyopensim/${relative_dest_dir}")
 endmacro()
 
+# Enable Doxygen comment processing for docstrings
+option(PYOSIM_SWIG_DOXYGEN "Generate Python docstrings from Doxygen comments" ON)
+set(SWIG_DOXYGEN_STRING "")
+if(PYOSIM_SWIG_DOXYGEN)
+    set(SWIG_DOXYGEN_STRING "-doxygen")
+endif()
+
 # Set SWIG options
 set(SWIG_FLAGS "")
 if(EXISTS "${OPENSIM_INSTALL_DIR}/sdk/lib/libezc3d${LIB_EXT}")
@@ -394,6 +401,7 @@ macro(OpenSimAddPythonModule)
             -v # verbose
             -o ${_output_cxx_file}
             -outdir "${CMAKE_CURRENT_BINARY_DIR}"
+            ${SWIG_DOXYGEN_STRING}
             ${_swig_common_args}
         DEPENDS ${_interface_file}
             COMMENT "Generating python bindings source code with SWIG: ${OSIMSWIGPY_MODULE} module."
