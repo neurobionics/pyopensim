@@ -144,11 +144,17 @@ if tools:
         except AttributeError:
             pass  # Class doesn't exist in this module
 
-# Import version
+# Import version from package metadata
 try:
-    from .version import __version__
+    from importlib.metadata import version
+    __version__ = version("pyopensim")
 except ImportError:
-    __version__ = "0.0.1"
+    # Fallback for Python < 3.8
+    try:
+        from importlib_metadata import version
+        __version__ = version("pyopensim")
+    except ImportError:
+        __version__ = "0.0.0"  # Fallback version
 
 # Set up geometry path if available
 _geometry_path = os.path.join(_curFolder, 'Geometry')

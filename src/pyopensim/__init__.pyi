@@ -1,10 +1,69 @@
 from typing import Any
-from . import actuators as actuators, analyses as analyses, common as common, simbody as simbody, simulation as simulation, tools as tools
-from .version import __version__ as __version__
+from . import actuators, analyses, common, simbody, simulation, tools
 
-# Re-exported classes for convenience
-from .simulation import Body as Body, Model as Model, PinJoint as PinJoint
-from .common import Vec3 as Vec3, Transform as Transform, Inertia as Inertia
-from .actuators import Millard2012EquilibriumMuscle as Millard2012EquilibriumMuscle
+# Version is imported from package metadata
+__version__: str
 
-__all__ = ['simbody', 'common', 'simulation', 'actuators', 'analyses', 'tools', 'Model', 'Body', 'PinJoint', 'Vec3', 'Transform', 'Inertia', 'Millard2012EquilibriumMuscle', '__version__']
+# Optional modules - mirror the runtime try/except behavior
+try:
+    from . import examplecomponents
+except ImportError:
+    examplecomponents = None
+
+try:
+    from . import moco
+except ImportError:
+    moco = None
+
+try:
+    from . import report
+except ImportError:
+    report = None
+
+# Re-exported classes from simbody
+from .simbody import Vec3, Rotation, Transform, Inertia, Gray, SimTK_PI
+
+# Re-exported classes from common
+from .common import Component, Property, Storage, Array, StepFunction, ConsoleReporter
+
+# Re-exported classes from simulation
+from .simulation import (
+    Model, 
+    Manager, 
+    State, 
+    Body, 
+    PinJoint, 
+    PhysicalOffsetFrame,
+    Ellipsoid, 
+    Millard2012EquilibriumMuscle, 
+    PrescribedController,
+    InverseKinematicsSolver, 
+    InverseDynamicsSolver
+)
+
+# Re-exported classes from actuators
+from .actuators import Muscle, CoordinateActuator, PointActuator
+
+# Re-exported classes from tools
+from .tools import InverseKinematicsTool, InverseDynamicsTool, ForwardTool, AnalyzeTool
+
+__all__ = [
+    # Core modules
+    'simbody', 'common', 'simulation', 'actuators', 'analyses', 'tools',
+    # Optional modules (if available)
+    'examplecomponents', 'moco', 'report',
+    # Common classes at top level for convenience
+    'Model', 'Manager', 'State', 'Body',
+    'Component', 'Property',
+    'Vec3', 'Rotation', 'Transform', 'Inertia',
+    'PinJoint', 'PhysicalOffsetFrame', 'Ellipsoid',
+    'Millard2012EquilibriumMuscle', 'PrescribedController',
+    'StepFunction', 'ConsoleReporter',
+    'Gray', 'SimTK_PI',
+    'Storage', 'Array',
+    'InverseKinematicsSolver', 'InverseDynamicsSolver',
+    'Muscle', 'CoordinateActuator', 'PointActuator',
+    'InverseKinematicsTool', 'InverseDynamicsTool',
+    'ForwardTool', 'AnalyzeTool',
+    '__version__'
+]
