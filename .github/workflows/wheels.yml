@@ -116,9 +116,6 @@ jobs:
           # Build timeout configuration (2 hours for complex builds)
           CIBW_BUILD_TIMEOUT: 7200
           
-          # Use system tools instead of installing duplicates
-          CIBW_XBUILD_TOOLS: cmake
-          
           # Use manylinux_2_28 for broader compatibility while still having modern tooling
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_I686_IMAGE: manylinux_2_28  
