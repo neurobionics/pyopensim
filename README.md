@@ -13,6 +13,9 @@ Portable Python bindings for [OpenSim](https://opensim.stanford.edu/) with compr
 - **Official Bindings**: Uses OpenSim's native SWIG bindings for full API compatibility
 - **PyPI Ready**: Simple `pip install` - integrates with standard Python packaging
 
+> [!NOTE]
+> The Windows build is currently a work in progress. Please use WSL to install our Linux wheels instead.
+
 ## Installation
 
 Install directly from PyPI:
