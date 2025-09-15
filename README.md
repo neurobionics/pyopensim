@@ -1,9 +1,16 @@
-# pyopensim
+<p align="center">
+  <img src="/pyopensim.jpg" width="100%">
+</p>
 
-Portable Python bindings for [OpenSim](https://opensim.stanford.edu/) with comprehensive type hints.
+<p align="center">
+  <a href="#"><img src="https://img.shields.io/badge/supports-linux,%20mac-blue" alt="support"></a>
+  <a href="https://github.com/neurobionics/pyopensim/actions"><img src="https://img.shields.io/github/actions/workflow/status/neurobionics/pyopensim/wheels.yml" alt="build"></a>
+  <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="kernel"></a>  
+  <a href="https://badge.fury.io/py/pyopensim"><img src="https://badge.fury.io/py/pyopensim.svg" alt="pypi"></a>
+  <a href="https://pepy.tech/projects/pyopensim"><img src="https://static.pepy.tech/personalized-badge/pyopensim?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads" alt="downloads"></a>
+</p>
 
-[![PyPI version](https://badge.fury.io/py/pyopensim.svg)](https://badge.fury.io/py/pyopensim)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+**PyOpenSim**: Unofficial Portable Python bindings for [OpenSim](https://opensim.stanford.edu/), which is an open source software system for biomechanical modeling, simulation and analysis.
 
 ## Key Features
 
@@ -11,7 +18,6 @@ Portable Python bindings for [OpenSim](https://opensim.stanford.edu/) with compr
 - **Type Hints**: Comprehensive `.pyi` stub files for excellent IDE support and type checking
 - **Cross-Platform**: Native support for Windows (work in progress), macOS, and Linux
 - **Official Bindings**: Uses OpenSim's native SWIG bindings for full API compatibility
-- **PyPI Ready**: Simple `pip install` - integrates with standard Python packaging
 
 > [!NOTE]
 > The Windows build is currently a work in progress. Please use WSL to install our Linux wheels instead.
@@ -24,13 +30,12 @@ Install directly from PyPI:
 pip install pyopensim
 ```
 
-No additional setup required! All OpenSim libraries are bundled in the wheel.
+No additional setup required! All OpenSim dependencies are bundled in the wheel.
 
 ## Why pyopensim?
 
-While the OpenSim team provides excellent [conda packages](https://anaconda.org/opensim-org/opensim), pyopensim offers complementary benefits for specific use cases:
+While the OpenSim team provide an excellent [conda package](https://anaconda.org/opensim-org/opensim), pyopensim offers complementary benefits for specific use cases:
 
-- **PyPI Integration**: Available through standard `pip install` for seamless integration with PyPI-based workflows
 - **Enhanced IDE Support**: Comprehensive type hints (`.pyi` stubs) provide excellent autocomplete, type checking, and documentation in modern IDEs
 - **Wheel Distribution**: Self-contained wheels make it easy to bundle OpenSim with your applications without requiring users to manage conda environments
 - **Flexible Deployment**: Works well in environments where conda isn't preferred (Docker containers, CI/CD pipelines)
@@ -60,8 +65,8 @@ pyopensim is automatically built and deployed to [PyPI](https://pypi.org/project
 - **Automated Builds**: GitHub Actions CI/CD builds wheels for all platforms
 - **cibuildwheel**: Ensures compatibility across Python versions and platforms  
 - **Bundled Libraries**: All OpenSim dependencies are included in the wheels
-- **Version Management**: Semantic versioning aligned with OpenSim releases
-- **Automated Tests**: Automated testing ensures each release works correctly
+- **Version Management**: Semantic versioning aligned with OpenSim releases (work in progress)
+- **Automated Tests**: Automated testing ensures each release works correctly (work in progress)
 
 This provides an alternative distribution method that complements the official OpenSim library.
 
