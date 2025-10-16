@@ -1,5 +1,10 @@
 [build-system]
-requires = ["scikit-build-core>=0.3.3", "numpy", "mypy"]
+requires = [
+    "scikit-build-core>=0.10.0",
+    "numpy",
+    "mypy",
+    "packaging>=24.0"
+]
 build-backend = "scikit_build_core.build"
 
 
@@ -37,10 +42,118 @@ wheel.packages = ["pyopensim", "pyopensim-stubs"]
 
 
 [tool.cibuildwheel]
-# Target python versions:
+# Target Python versions
 build = ["cp310-*", "cp311-*", "cp312-*"]
-
+skip = "*musllinux*"
 build-verbosity = 1
+
+# Build timeout (2 hours for complex builds)
+build-timeout = 7200
+
+# Test configuration
 test-command = "pytest {project}/tests"
 test-extras = ["test"]
 test-skip = ["*universal2:arm64"]
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64"]
+# Use manylinux_2_28 for broader compatibility while still having modern tooling
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-i686-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+manylinux-ppc64le-image = "manylinux_2_28"
+manylinux-s390x-image = "manylinux_2_28"
+
+before-build = """
+chmod +x scripts/ci/build_opensim.sh
+CACHE_DIR="/host$(pwd)/opensim-cache/linux-$(uname -m)"
+scripts/ci/build_opensim.sh --platform linux --cache-dir "$CACHE_DIR"
+"""
+
+before-test = """
+echo "=== Installing OpenBLAS for tests ===" &&
+dnf install -y openblas || yum install -y openblas || (apt-get update && apt-get install -y libopenblas0)
+"""
+
+environment = { PATH = "/host$(pwd)/opensim-cache/linux-$(uname -m)/swig/bin:$PATH", OPENSIM_INSTALL_DIR = "/host$(pwd)/opensim-cache/linux-$(uname -m)/opensim-install" }
+
+repair-wheel-command = """
+echo "=== Repairing Linux wheel ===" &&
+OPENSIM_INSTALL="/host$(pwd)/opensim-cache/linux-$(uname -m)/opensim-install" &&
+DEPS_INSTALL="/host$(pwd)/opensim-cache/linux-$(uname -m)/dependencies-install" &&
+echo "Library paths for auditwheel:" &&
+echo "  $OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib64:$OPENSIM_INSTALL/sdk/Simbody/lib:$DEPS_INSTALL/simbody/lib64:$DEPS_INSTALL/simbody/lib:$DEPS_INSTALL/ezc3d/lib64:$DEPS_INSTALL/ezc3d/lib:$DEPS_INSTALL/lib64:$DEPS_INSTALL/lib" &&
+LD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib64:$OPENSIM_INSTALL/sdk/Simbody/lib:$DEPS_INSTALL/simbody/lib64:$DEPS_INSTALL/simbody/lib:$DEPS_INSTALL/ezc3d/lib64:$DEPS_INSTALL/ezc3d/lib:$DEPS_INSTALL/lib64:$DEPS_INSTALL/lib:$LD_LIBRARY_PATH" auditwheel repair --exclude libSimTKcommon.so.3.8 --exclude libSimTKmath.so.3.8 --exclude libSimTKsimbody.so.3.8 --exclude libopenblas.so.0 -w {dest_dir} {wheel}
+"""
+
+[tool.cibuildwheel.macos]
+archs = ["universal2"]
+
+before-build = """
+chmod +x scripts/ci/build_opensim.sh
+CACHE_DIR="$(pwd)/opensim-cache/macos-universal2"
+scripts/ci/build_opensim.sh --platform macos --cache-dir "$CACHE_DIR"
+"""
+
+environment = { MACOSX_DEPLOYMENT_TARGET = "14.0", CMAKE_OSX_ARCHITECTURES = "x86_64;arm64", OPENSIM_INSTALL_DIR = "$(pwd)/opensim-cache/macos-universal2/opensim-install" }
+
+repair-wheel-command = """
+echo "=== Repairing macOS wheel ===" &&
+OPENSIM_INSTALL="$(pwd)/opensim-cache/macos-universal2/opensim-install" &&
+DYLD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib" delocate-wheel -w {dest_dir} -v {wheel}
+"""
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+
+# Windows is still using inline bash - TODO: refactor to use scripts/ci/build_opensim.ps1
+before-build = """
+echo "=== Building OpenSim for Windows ===" &&
+set "PROJECT_ROOT=%cd%" &&
+set "CACHE_DIR=%PROJECT_ROOT%\\opensim-cache\\windows-AMD64" &&
+set "OPENSIM_INSTALL=%CACHE_DIR%\\opensim-install" &&
+if exist "%OPENSIM_INSTALL%\\.build_complete" (
+  echo "Using cached OpenSim build from %OPENSIM_INSTALL%"
+) else (
+  echo "Building OpenSim from scratch..." &&
+  if not exist "%CACHE_DIR%" mkdir "%CACHE_DIR%" &&
+  cd /d "%CACHE_DIR%" &&
+  echo "Setting up Visual Studio environment..." &&
+  call "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat" &&
+  echo "Downloading precompiled SWIG for Windows..." &&
+  powershell -Command "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'http://prdownloads.sourceforge.net/swig/swigwin-4.1.1.zip' -OutFile 'swig.zip' -TimeoutSec 300" &&
+  powershell -Command "$ProgressPreference = 'SilentlyContinue'; Expand-Archive -Path 'swig.zip' -DestinationPath '.' -Force" &&
+  move swigwin-4.1.1 swig &&
+  del swig.zip &&
+  set "PATH=%CACHE_DIR%\\swig;%PATH%" &&
+  if not exist dependencies-build mkdir dependencies-build &&
+  cd dependencies-build &&
+  echo "Starting dependencies build..." &&
+  timeout /t 10 /nobreak >nul &&
+  cmake "%PROJECT_ROOT%\\src\\opensim-core\\dependencies" -DCMAKE_INSTALL_PREFIX="%CACHE_DIR%\\dependencies-install" -DCMAKE_BUILD_TYPE=Release -DSUPERBUILD_ezc3d=ON -DOPENSIM_WITH_CASADI=OFF -DCMAKE_CXX_FLAGS="/MP" -DCMAKE_C_FLAGS="/MP" &&
+  timeout /t 5 /nobreak >nul &&
+  cmake --build . --config Release -j%NUMBER_OF_PROCESSORS% --verbose &&
+  cd .. &&
+  if not exist opensim-build mkdir opensim-build &&
+  cd opensim-build &&
+  echo "Starting OpenSim core build..." &&
+  timeout /t 10 /nobreak >nul &&
+  cmake "%PROJECT_ROOT%\\src\\opensim-core" -DCMAKE_INSTALL_PREFIX="%OPENSIM_INSTALL%" -DCMAKE_BUILD_TYPE=Release -DOPENSIM_DEPENDENCIES_DIR="%CACHE_DIR%\\dependencies-install" -DCMAKE_PREFIX_PATH="%CACHE_DIR%\\dependencies-install" -DBUILD_JAVA_WRAPPING=OFF -DBUILD_PYTHON_WRAPPING=OFF -DBUILD_TESTING=OFF -DBUILD_API_EXAMPLES=OFF -DOPENSIM_C3D_PARSER=ezc3d -DOPENSIM_WITH_CASADI=OFF -DOPENSIM_WITH_TROPTER=OFF -DOPENSIM_WITH_MOCO=OFF -DOPENSIM_INSTALL_UNIX_FHS=OFF -DSWIG_DIR="%CACHE_DIR%\\swig\\Lib" -DSWIG_EXECUTABLE="%CACHE_DIR%\\swig\\swig.exe" -DCMAKE_CXX_FLAGS="/MP" -DCMAKE_C_FLAGS="/MP" &&
+  timeout /t 5 /nobreak >nul &&
+  cmake --build . --config Release -j%NUMBER_OF_PROCESSORS% --verbose &&
+  cmake --install . &&
+  echo. > "%OPENSIM_INSTALL%\\.build_complete" &&
+  echo "OpenSim build complete"
+) &&
+set "PATH=%CACHE_DIR%\\swig;%PATH%" &&
+set "OPENSIM_INSTALL_DIR=%OPENSIM_INSTALL%"
+"""
+
+environment = { PATH = "$(pwd)/opensim-cache/windows-AMD64/swig;$PATH", OPENSIM_INSTALL_DIR = "$(pwd)/opensim-cache/windows-AMD64/opensim-install" }
+
+repair-wheel-command = """
+echo "=== Repairing Windows wheel ===" &&
+set "OPENSIM_INSTALL=$(pwd)/opensim-cache/windows-AMD64/opensim-install" &&
+set "PATH=%OPENSIM_INSTALL%\\sdk\\lib;%OPENSIM_INSTALL%\\sdk\\Simbody\\lib;%PATH%" &&
+delvewheel repair --add-path "%OPENSIM_INSTALL%\\sdk\\lib" --add-path "%OPENSIM_INSTALL%\\sdk\\Simbody\\lib" -w {dest_dir} {wheel}
+"""

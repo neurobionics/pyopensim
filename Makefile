@@ -53,7 +53,7 @@ setup: check-deps setup-opensim ## Complete setup: dependencies + OpenSim + Pyth
 	@echo "Setup complete! Use 'make build' to build Python bindings."
 
 build: ## Build the Python bindings
-	pip install -v .[test]
+	uv build
 
 check:
 	mypy src/pyopensim
@@ -77,4 +77,4 @@ cibw-test:
 	./scripts/cibw_local_wheels.sh
 
 test: ## Run tests
-	python -m pytest tests
+	uv run pytest tests
