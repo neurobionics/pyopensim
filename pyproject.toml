@@ -103,47 +103,9 @@ DYLD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib" de
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
 
-# Windows is still using inline bash - TODO: refactor to use scripts/ci/build_opensim.ps1
+# Use modular PowerShell script for Windows builds (matches Linux/macOS architecture)
 before-build = """
-echo "=== Building OpenSim for Windows ===" &&
-set "PROJECT_ROOT=%cd%" &&
-set "CACHE_DIR=%PROJECT_ROOT%\\opensim-cache\\windows-AMD64" &&
-set "OPENSIM_INSTALL=%CACHE_DIR%\\opensim-install" &&
-if exist "%OPENSIM_INSTALL%\\.build_complete" (
-  echo "Using cached OpenSim build from %OPENSIM_INSTALL%"
-) else (
-  echo "Building OpenSim from scratch..." &&
-  if not exist "%CACHE_DIR%" mkdir "%CACHE_DIR%" &&
-  cd /d "%CACHE_DIR%" &&
-  echo "Setting up Visual Studio environment..." &&
-  call "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat" &&
-  echo "Downloading precompiled SWIG for Windows..." &&
-  powershell -Command "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'http://prdownloads.sourceforge.net/swig/swigwin-4.1.1.zip' -OutFile 'swig.zip' -TimeoutSec 300" &&
-  powershell -Command "$ProgressPreference = 'SilentlyContinue'; Expand-Archive -Path 'swig.zip' -DestinationPath '.' -Force" &&
-  move swigwin-4.1.1 swig &&
-  del swig.zip &&
-  set "PATH=%CACHE_DIR%\\swig;%PATH%" &&
-  if not exist dependencies-build mkdir dependencies-build &&
-  cd dependencies-build &&
-  echo "Starting dependencies build..." &&
-  timeout /t 10 /nobreak >nul &&
-  cmake "%PROJECT_ROOT%\\src\\opensim-core\\dependencies" -DCMAKE_INSTALL_PREFIX="%CACHE_DIR%\\dependencies-install" -DCMAKE_BUILD_TYPE=Release -DSUPERBUILD_ezc3d=ON -DOPENSIM_WITH_CASADI=OFF -DCMAKE_CXX_FLAGS="/MP" -DCMAKE_C_FLAGS="/MP" &&
-  timeout /t 5 /nobreak >nul &&
-  cmake --build . --config Release -j%NUMBER_OF_PROCESSORS% --verbose &&
-  cd .. &&
-  if not exist opensim-build mkdir opensim-build &&
-  cd opensim-build &&
-  echo "Starting OpenSim core build..." &&
-  timeout /t 10 /nobreak >nul &&
-  cmake "%PROJECT_ROOT%\\src\\opensim-core" -DCMAKE_INSTALL_PREFIX="%OPENSIM_INSTALL%" -DCMAKE_BUILD_TYPE=Release -DOPENSIM_DEPENDENCIES_DIR="%CACHE_DIR%\\dependencies-install" -DCMAKE_PREFIX_PATH="%CACHE_DIR%\\dependencies-install" -DBUILD_JAVA_WRAPPING=OFF -DBUILD_PYTHON_WRAPPING=OFF -DBUILD_TESTING=OFF -DBUILD_API_EXAMPLES=OFF -DOPENSIM_C3D_PARSER=ezc3d -DOPENSIM_WITH_CASADI=OFF -DOPENSIM_WITH_TROPTER=OFF -DOPENSIM_WITH_MOCO=OFF -DOPENSIM_INSTALL_UNIX_FHS=OFF -DSWIG_DIR="%CACHE_DIR%\\swig\\Lib" -DSWIG_EXECUTABLE="%CACHE_DIR%\\swig\\swig.exe" -DCMAKE_CXX_FLAGS="/MP" -DCMAKE_C_FLAGS="/MP" &&
-  timeout /t 5 /nobreak >nul &&
-  cmake --build . --config Release -j%NUMBER_OF_PROCESSORS% --verbose &&
-  cmake --install . &&
-  echo. > "%OPENSIM_INSTALL%\\.build_complete" &&
-  echo "OpenSim build complete"
-) &&
-set "PATH=%CACHE_DIR%\\swig;%PATH%" &&
-set "OPENSIM_INSTALL_DIR=%OPENSIM_INSTALL%"
+powershell -ExecutionPolicy Bypass -File scripts/ci/build_opensim.ps1 -CacheDir "%cd%\\opensim-cache\\windows-AMD64"
 """
 
 environment = { PATH = "$(pwd)/opensim-cache/windows-AMD64/swig;$PATH", OPENSIM_INSTALL_DIR = "$(pwd)/opensim-cache/windows-AMD64/opensim-install" }

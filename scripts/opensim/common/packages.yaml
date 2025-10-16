@@ -144,15 +144,13 @@ macos:
 
 windows:
   # Windows using Chocolatey
+  # NOTE: In GitHub Actions, Visual Studio is pre-installed
+  # For local development, install VS 2022 Community with C++ workload manually
   choco:
-    - visualstudio2022community
-    - visualstudio2022-workload-nativedesktop
-    - visualstudio2022buildtools
-    - cmake.install:3.23.3
+    - cmake.install
     - python3
     - jdk8
-    - swig:4.1.1
-    - nsis
+    # SWIG is downloaded separately in the build script to avoid chocolatey issues
 
   # Python packages (installed via pip)
   pip:
