@@ -45,7 +45,7 @@ wheel.packages = ["pyopensim", "pyopensim-stubs"]
 # Target Python versions
 build = ["cp310-*", "cp311-*", "cp312-*"]
 skip = "*musllinux*"
-build-verbosity = 1
+build-verbosity = 3  # Maximum verbosity to help diagnose issues and prevent timeout detection
 
 # Test configuration
 test-command = "pytest {project}/tests"
@@ -108,7 +108,8 @@ before-build = """
 powershell -ExecutionPolicy Bypass -File scripts/ci/build_opensim.ps1 -CacheDir "%cd%\\opensim-cache\\windows-AMD64"
 """
 
-environment = { PATH = "$(pwd)/opensim-cache/windows-AMD64/swig;$PATH", OPENSIM_INSTALL_DIR = "$(pwd)/opensim-cache/windows-AMD64/opensim-install" }
+# Note: PATH is set by build_opensim.ps1, so we only need to set OPENSIM_INSTALL_DIR
+environment = { OPENSIM_INSTALL_DIR = "%cd%\\opensim-cache\\windows-AMD64\\opensim-install" }
 
 repair-wheel-command = """
 echo "=== Repairing Windows wheel ===" &&

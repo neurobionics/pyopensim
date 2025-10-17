@@ -71,6 +71,7 @@ jobs:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: matrix_prep
+    timeout-minutes: 180  # 3 hours - Windows builds can take 60-90 minutes
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix_prep.outputs.matrix) }}

@@ -138,8 +138,8 @@
       "generator": "Visual Studio 17 2022",
       "architecture": "x64",
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/MP /utf-8 /bigobj",
-        "CMAKE_C_FLAGS": "/MP"
+        "CMAKE_CXX_FLAGS": "/MP /utf-8 /bigobj /W0",
+        "CMAKE_C_FLAGS": "/MP /W0"
       }
     }
   ],

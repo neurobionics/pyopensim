@@ -122,9 +122,26 @@ if ($Force -or -not (Test-Path $BuildComplete)) {
             throw "CMake configuration failed with exit code $LASTEXITCODE"
         }
 
-        # Build
+        # Build with periodic output to prevent timeout detection
         Write-Host "Building dependencies (this may take 15-20 minutes)..."
-        cmake --build . --config Release -j $Jobs
+
+        $buildJob = Start-Job -ScriptBlock {
+            param($BuildDir, $Jobs)
+            Set-Location $BuildDir
+            cmake --build . --config Release -j $Jobs 2>&1
+        } -ArgumentList $DepsBuildDir, $Jobs
+
+        # Monitor job and provide periodic output
+        while ($buildJob.State -eq 'Running') {
+            Start-Sleep -Seconds 30
+            Write-Host "  [$(Get-Date -Format 'HH:mm:ss')] Dependencies build in progress..."
+            Receive-Job $buildJob # Show any new output
+        }
+
+        # Wait for completion and get final result
+        $buildJob | Wait-Job | Receive-Job
+        $exitCode = $buildJob.ChildJobs[0].Output | Select-Object -Last 1
+        Remove-Job $buildJob
 
         if ($LASTEXITCODE -ne 0) {
             throw "Dependencies build failed with exit code $LASTEXITCODE"
@@ -157,9 +174,26 @@ if ($Force -or -not (Test-Path $BuildComplete)) {
             throw "CMake configuration failed with exit code $LASTEXITCODE"
         }
 
-        # Build
+        # Build with periodic output to prevent timeout detection
         Write-Host "Building OpenSim core (this may take 20-30 minutes)..."
-        cmake --build . --config Release -j $Jobs
+
+        $buildJob = Start-Job -ScriptBlock {
+            param($BuildDir, $Jobs)
+            Set-Location $BuildDir
+            cmake --build . --config Release -j $Jobs 2>&1
+        } -ArgumentList $OpensimBuildDir, $Jobs
+
+        # Monitor job and provide periodic output
+        while ($buildJob.State -eq 'Running') {
+            Start-Sleep -Seconds 30
+            Write-Host "  [$(Get-Date -Format 'HH:mm:ss')] OpenSim core build in progress..."
+            Receive-Job $buildJob # Show any new output
+        }
+
+        # Wait for completion and get final result
+        $buildJob | Wait-Job | Receive-Job
+        $exitCode = $buildJob.ChildJobs[0].Output | Select-Object -Last 1
+        Remove-Job $buildJob
 
         if ($LASTEXITCODE -ne 0) {
             throw "OpenSim build failed with exit code $LASTEXITCODE"
