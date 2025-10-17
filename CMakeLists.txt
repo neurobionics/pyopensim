@@ -420,7 +420,8 @@ macro(OpenSimAddPythonModule)
         set(_COMPILE_FLAGS "-O0 -Wno-deprecated-declarations")
     elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "MSVC")
         # Don't warn about deprecated functions and const const T
-        set(_COMPILE_FLAGS "/wd4996 /wd4114")
+        # /MP enables parallel compilation (helps prevent timeout)
+        set(_COMPILE_FLAGS "/wd4996 /wd4114 /MP")
     endif()
     if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang" AND
             NOT (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "10"))

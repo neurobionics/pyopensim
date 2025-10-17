@@ -40,6 +40,15 @@ wheel.expand-macos-universal-tags = true
 # Include stub files in the wheel for PEP 561 compliance
 wheel.packages = ["pyopensim", "pyopensim-stubs"]
 
+# Build configuration for faster, more verbose builds
+build.verbose = true
+logging.level = "INFO"
+cmake.verbose = true
+
+# Parallel build configuration (adjust based on available cores)
+# Note: Windows Visual Studio builds will use this for parallel compilation
+build.tool-args = []
+
 
 [tool.cibuildwheel]
 # Target Python versions
@@ -108,8 +117,9 @@ before-build = """
 powershell -ExecutionPolicy Bypass -File scripts/ci/build_opensim.ps1 -CacheDir "%cd%\\opensim-cache\\windows-AMD64"
 """
 
-# Note: PATH is set by build_opensim.ps1, so we only need to set OPENSIM_INSTALL_DIR
-environment = { OPENSIM_INSTALL_DIR = "%cd%\\opensim-cache\\windows-AMD64\\opensim-install" }
+# Environment variables for Windows builds
+# Note: PATH is set by build_opensim.ps1
+environment = { OPENSIM_INSTALL_DIR = "%cd%\\opensim-cache\\windows-AMD64\\opensim-install", CMAKE_BUILD_PARALLEL_LEVEL = "4", VERBOSE = "1" }
 
 repair-wheel-command = """
 echo "=== Repairing Windows wheel ===" &&
