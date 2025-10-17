@@ -43,7 +43,6 @@ wheel.packages = ["pyopensim", "pyopensim-stubs"]
 # Build configuration for faster, more verbose builds
 build.verbose = true
 logging.level = "INFO"
-cmake.verbose = true
 
 # Parallel build configuration (adjust based on available cores)
 # Note: Windows Visual Studio builds will use this for parallel compilation
