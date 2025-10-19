@@ -22,6 +22,9 @@ $ErrorActionPreference = "Stop"
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $COMMON_DIR = Join-Path $SCRIPT_DIR "..\opensim\common"
 
+# Convert CacheDir to absolute path (in case it's relative)
+$CacheDir = [System.IO.Path]::GetFullPath($CacheDir)
+
 # Set up paths
 $OPENSIM_INSTALL = Join-Path $CacheDir "opensim-install"
 $DEPS_INSTALL = Join-Path $CacheDir "dependencies-install"
