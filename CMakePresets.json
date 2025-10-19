@@ -144,8 +144,8 @@
         "strategy": "set"
       },
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/MD",
-        "CMAKE_C_FLAGS": "/MD"
+        "CMAKE_CXX_FLAGS": "/MD /utf-8",
+        "CMAKE_C_FLAGS": "/MD /utf-8"
       }
     }
   ],

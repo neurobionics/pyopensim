@@ -412,11 +412,14 @@ macro(OpenSimAddPythonModule)
     if(${CMAKE_CXX_COMPILER_ID} MATCHES "GNU" OR
             ${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
         # Turn off optimization for SWIG wrapper code
-        set(_COMPILE_FLAGS "-O0 -Wno-deprecated-declarations")
+        # -DSWIG_PYTHON enables SWIG Python compatibility macros
+        set(_COMPILE_FLAGS "-O0 -Wno-deprecated-declarations -DSWIG_PYTHON")
     elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "MSVC")
         # Don't warn about deprecated functions and const const T
         # /MP enables parallel compilation (helps prevent timeout)
-        set(_COMPILE_FLAGS "/wd4996 /wd4114 /MP")
+        # /utf-8 enables UTF-8 source and execution character sets (required by newer spdlog/fmt)
+        # /DSWIG_PYTHON enables SWIG Python compatibility macros (fixes SWIG_Python_AppendOutput issues)
+        set(_COMPILE_FLAGS "/wd4996 /wd4114 /MP /utf-8 /DSWIG_PYTHON")
     endif()
     if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang" AND
             NOT (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "10"))
