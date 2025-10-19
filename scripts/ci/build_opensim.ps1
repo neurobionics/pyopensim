@@ -38,13 +38,13 @@ $PROJECT_ROOT = [System.IO.Path]::GetFullPath($PROJECT_ROOT)
 
 # Check if we have a cached build
 $BUILD_COMPLETE = Join-Path $OPENSIM_INSTALL ".build_complete"
-if ((Test-Path $BUILD_COMPLETE) -and -not $Force) {
-    Write-Host "✓ Using cached OpenSim build from $OPENSIM_INSTALL" -ForegroundColor Green
+if ((Test-Path $BUILD_COMPLETE) -and (-not $Force)) {
+    Write-Host "[OK] Using cached OpenSim build from $OPENSIM_INSTALL" -ForegroundColor Green
 
     # Verify cache is valid by checking for critical files
     $SDK_LIB = Join-Path $OPENSIM_INSTALL "sdk\lib"
     if (Test-Path $SDK_LIB) {
-        Write-Host "✓ Cache validation passed" -ForegroundColor Green
+        Write-Host "[OK] Cache validation passed" -ForegroundColor Green
         Get-ChildItem $SDK_LIB | Select-Object -First 10 | Format-Table Name, Length
     } else {
         Write-Host "Warning: Cache appears corrupted, rebuilding..." -ForegroundColor Yellow
@@ -196,8 +196,8 @@ if ($Force -or -not (Test-Path $BUILD_COMPLETE)) {
     # Mark as complete
     New-Item -ItemType File -Path $BUILD_COMPLETE -Force | Out-Null
 
-    Write-Host "`n✓ OpenSim build complete" -ForegroundColor Green
-}
+    Write-Host "`n[OK] OpenSim build complete" -ForegroundColor Green
+}  # End of: if ($Force -or -not (Test-Path $BUILD_COMPLETE))
 
 # Set environment variables for subsequent build steps
 Write-Host "`n=== Setting up build environment ===" -ForegroundColor Cyan
@@ -214,5 +214,5 @@ if ($swigCmd) {
 
 Write-Host "  OPENSIM_INSTALL_DIR: $env:OPENSIM_INSTALL_DIR" -ForegroundColor Green
 
-Write-Host "`n✓ CI build environment ready" -ForegroundColor Green
+Write-Host "`n[OK] CI build environment ready" -ForegroundColor Green
 Write-Host "  OpenSim installed at: $OPENSIM_INSTALL" -ForegroundColor Green
