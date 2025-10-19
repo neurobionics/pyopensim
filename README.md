@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="#"><img src="https://img.shields.io/badge/supports-linux,%20mac-blue" alt="support"></a>
+  <a href="#"><img src="https://img.shields.io/badge/supports-linux,%20macos,%20windows-blue" alt="support"></a>
   <a href="https://github.com/neurobionics/pyopensim/actions"><img src="https://img.shields.io/github/actions/workflow/status/neurobionics/pyopensim/wheels.yml" alt="build"></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="kernel"></a>  
   <a href="https://badge.fury.io/py/pyopensim"><img src="https://badge.fury.io/py/pyopensim.svg" alt="pypi"></a>
@@ -16,11 +16,8 @@
 
 - **Portable**: Self-contained Python wheels with bundled OpenSim libraries
 - **Type Hints**: Comprehensive `.pyi` stub files for excellent IDE support and type checking
-- **Cross-Platform**: Native support for Windows (work in progress), macOS, and Linux
+- **Cross-Platform**: Native support for Linux, macOS, and Windows
 - **Official Bindings**: Uses OpenSim's native SWIG bindings for full API compatibility
-
-> [!NOTE]
-> The Windows build is currently a work in progress. Please use WSL to install our Linux wheels instead.
 
 ## Installation
 
@@ -94,8 +91,9 @@ To use the official OpenSim conda package, checkout this [package](https://anaco
 
 ## Development
 
-This project builds OpenSim from source to create self-contained Python wheels:
+This project builds OpenSim from source to create self-contained Python wheels.
 
+**Linux/macOS:**
 ```bash
 # Clone the repository
 git clone https://github.com/neurobionics/pyopensim.git
@@ -107,6 +105,21 @@ make setup
 # Build Python wheels
 make build
 ```
+
+**Windows:**
+```powershell
+# Clone the repository
+git clone https://github.com/neurobionics/pyopensim.git
+cd pyopensim
+
+# Build OpenSim and dependencies
+.\make.ps1 setup
+
+# Build Python wheels
+.\make.ps1 build
+```
+
+**See [WINDOWS.md](WINDOWS.md) for detailed Windows build instructions.**
 
 The build process includes:
 - Compiling OpenSim's C++ libraries and dependencies

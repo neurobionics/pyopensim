@@ -1,7 +1,6 @@
 #!/bin/bash
 # Common SWIG installation script
-# Installs SWIG 4.1.1 from source for Linux/macOS or downloads precompiled for Windows
-#
+# Installs SWIG 4.1.1 from source for Linux/macOS
 # Usage:
 #   install_swig.sh --install-dir <path> [--jobs <n>]
 #

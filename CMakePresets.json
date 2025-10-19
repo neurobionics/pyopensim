@@ -64,10 +64,13 @@
       "description": "Windows dependencies build configuration",
       "inherits": "opensim-dependencies-base",
       "generator": "Visual Studio 17 2022",
-      "architecture": "x64",
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
+      },
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/MP",
-        "CMAKE_C_FLAGS": "/MP"
+        "CMAKE_CXX_FLAGS": "/MD /W0",
+        "CMAKE_C_FLAGS": "/MD /W0"
       }
     },
     {
@@ -136,10 +139,13 @@
       "description": "Windows OpenSim core build configuration",
       "inherits": "opensim-core-base",
       "generator": "Visual Studio 17 2022",
-      "architecture": "x64",
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
+      },
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/MP /utf-8 /bigobj /W0",
-        "CMAKE_C_FLAGS": "/MP /W0"
+        "CMAKE_CXX_FLAGS": "/MD",
+        "CMAKE_C_FLAGS": "/MD"
       }
     }
   ],
@@ -157,12 +163,6 @@
       "jobs": 4
     },
     {
-      "name": "opensim-dependencies-windows",
-      "configurePreset": "opensim-dependencies-windows",
-      "configuration": "Release",
-      "jobs": 4
-    },
-    {
       "name": "opensim-core-linux",
       "configurePreset": "opensim-core-linux",
       "configuration": "Release",
@@ -171,6 +171,12 @@
     {
       "name": "opensim-core-macos-universal2",
       "configurePreset": "opensim-core-macos-universal2",
+      "configuration": "Release",
+      "jobs": 4
+    },
+    {
+      "name": "opensim-dependencies-windows",
+      "configurePreset": "opensim-dependencies-windows",
       "configuration": "Release",
       "jobs": 4
     },

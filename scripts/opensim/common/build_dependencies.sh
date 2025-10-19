@@ -110,61 +110,36 @@ echo "  Jobs:    $NUM_JOBS"
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
-# Get CMake flags based on preset name
+# Get CMake flags from CMakePresets.json
 # Note: We can't use --preset here because the dependencies directory doesn't have CMakePresets.json
-# Instead, we extract the flags from the preset and pass them directly
+# Instead, we extract the flags from the preset using parse_preset.py and pass them directly
 echo "Configuring dependencies with flags from preset: $PRESET"
 
-case "$PRESET" in
-    opensim-dependencies-linux)
-        CMAKE_FLAGS=(
-            -DCMAKE_BUILD_TYPE=Release
-            -DCMAKE_CXX_FLAGS="-pthread -fPIC"
-            -DCMAKE_C_FLAGS="-pthread -fPIC"
-            -DSUPERBUILD_ezc3d=ON
-            -DOPENSIM_WITH_CASADI=OFF
-            -DOPENSIM_WITH_TROPTER=OFF
-        )
-        ;;
-    opensim-dependencies-macos-x86_64)
-        CMAKE_FLAGS=(
-            -DCMAKE_BUILD_TYPE=Release
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
-            -DCMAKE_OSX_ARCHITECTURES=x86_64
-            -DSUPERBUILD_ezc3d=ON
-            -DOPENSIM_WITH_CASADI=OFF
-            -DOPENSIM_WITH_TROPTER=OFF
-        )
-        ;;
-    opensim-dependencies-macos-arm64)
-        CMAKE_FLAGS=(
-            -DCMAKE_BUILD_TYPE=Release
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
-            -DCMAKE_OSX_ARCHITECTURES=arm64
-            -DSUPERBUILD_ezc3d=ON
-            -DOPENSIM_WITH_CASADI=OFF
-            -DOPENSIM_WITH_TROPTER=OFF
-        )
-        ;;
-    opensim-dependencies-macos-universal2)
-        CMAKE_FLAGS=(
-            -DCMAKE_BUILD_TYPE=Release
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
-            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
-            -DSUPERBUILD_ezc3d=ON
-            -DOPENSIM_WITH_CASADI=OFF
-            -DOPENSIM_WITH_TROPTER=OFF
-        )
-        ;;
-    *)
-        echo "Error: Unknown preset: $PRESET"
-        echo "Supported presets: opensim-dependencies-linux, opensim-dependencies-macos-{x86_64,arm64,universal2}"
-        exit 1
-        ;;
-esac
+# Get script directory to locate parse_preset.py
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Find the repository root (CMakePresets.json location)
+# The common directory is at scripts/opensim/common/, so go up 3 levels
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+PRESETS_FILE="$REPO_ROOT/CMakePresets.json"
+
+if [ ! -f "$PRESETS_FILE" ]; then
+    echo "Error: CMakePresets.json not found at: $PRESETS_FILE"
+    exit 1
+fi
+
+# Extract CMake flags from preset using Python parser
+CMAKE_FLAGS=$(python3 "$SCRIPT_DIR/parse_preset.py" "$PRESETS_FILE" "$PRESET")
+
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to parse preset '$PRESET'"
+    exit 1
+fi
+
+echo "  CMake flags: $CMAKE_FLAGS"
 
 cmake "$SOURCE_DIR" \
-    "${CMAKE_FLAGS[@]}" \
+    $CMAKE_FLAGS \
     -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR"
 
 # Build

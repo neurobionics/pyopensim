@@ -142,20 +142,6 @@ macos:
     - cython
     - numpy
 
-windows:
-  # Windows using Chocolatey
-  # NOTE: In GitHub Actions, Visual Studio is pre-installed
-  # For local development, install VS 2022 Community with C++ workload manually
-  choco:
-    - cmake.install
-    - python3
-    - jdk8
-    # SWIG is downloaded separately in the build script to avoid chocolatey issues
-
-  # Python packages (installed via pip)
-  pip:
-    - numpy
-
 # Version requirements
 versions:
   swig: "4.1.1"

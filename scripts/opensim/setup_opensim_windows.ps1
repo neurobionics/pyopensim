@@ -1,287 +1,254 @@
-# OpenSim setup script for Windows (local development)
-# This script orchestrates the Windows build process using CMake presets
-#
-# Usage:
-#   setup_opensim_windows.ps1 [-Force] [-DepsOnly] [-Jobs <n>] [-Preset <name>]
-#
-# Examples:
-#   .\setup_opensim_windows.ps1                    # Standard build
-#   .\setup_opensim_windows.ps1 -Force             # Force rebuild from scratch
-#   .\setup_opensim_windows.ps1 -Jobs 8            # Use 8 parallel jobs
-#   .\setup_opensim_windows.ps1 -DepsOnly          # Install dependencies only
+# Setup script for OpenSim on Windows
+# This script orchestrates the OpenSim build process for local development
 
 param(
-    [Parameter(Mandatory=$false)]
-    [switch]$Force,
-
-    [Parameter(Mandatory=$false)]
     [switch]$DepsOnly,
-
-    [Parameter(Mandatory=$false)]
-    [int]$Jobs = $env:NUMBER_OF_PROCESSORS,
-
-    [Parameter(Mandatory=$false)]
-    [string]$Preset = "opensim-core-windows",
-
-    [Parameter(Mandatory=$false)]
-    [switch]$Help
+    [switch]$Force,
+    [string]$BuildType = "Release",
+    [int]$Jobs = 4
 )
 
 $ErrorActionPreference = "Stop"
 
-function Show-Help {
-    Write-Host @"
-OpenSim Windows Setup Script
-
-Usage: setup_opensim_windows.ps1 [options]
-
-Options:
-  -Force          Force rebuild (ignore cache)
-  -DepsOnly       Install system dependencies only (skip OpenSim build)
-  -Jobs <n>       Number of parallel jobs (default: $env:NUMBER_OF_PROCESSORS)
-  -Preset <name>  CMake preset to use (default: opensim-core-windows)
-  -Help           Show this help message
-
-Examples:
-  .\setup_opensim_windows.ps1
-  .\setup_opensim_windows.ps1 -Force -Jobs 8
-  .\setup_opensim_windows.ps1 -DepsOnly
-
-Note: Requires Visual Studio 2022 with C++ workload installed.
-"@
-    exit 0
-}
-
-if ($Help) {
-    Show-Help
-}
-
-# Get script and project directories
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
-$CommonDir = Join-Path $ScriptDir "common"
+# Get script directory and project root
+$SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
+$COMMON_DIR = Join-Path $SCRIPT_DIR "common"
+$OPENSIM_ROOT = Get-Location
+$WORKSPACE_DIR = Join-Path $OPENSIM_ROOT "build\opensim-workspace"
 
 Write-Host "=== OpenSim Windows Setup ===" -ForegroundColor Cyan
-Write-Host "Project root: $ProjectRoot"
+Write-Host "Build type: $BuildType"
 Write-Host "Jobs: $Jobs"
-Write-Host "Preset: $Preset"
-Write-Host "Force rebuild: $Force"
+Write-Host "Workspace: $WORKSPACE_DIR"
 
-# Set up paths
-$WorkspaceDir = Join-Path $ProjectRoot "build\opensim-workspace"
-$OpensimInstall = Join-Path $WorkspaceDir "opensim-install"
-$DepsInstall = Join-Path $WorkspaceDir "dependencies-install"
-$SwigInstall = Join-Path $WorkspaceDir "swig-install"
-$DepsSource = Join-Path $ProjectRoot "src\opensim-core\dependencies"
-$OpensimSource = Join-Path $ProjectRoot "src\opensim-core"
+# Create workspace
+New-Item -ItemType Directory -Force -Path $WORKSPACE_DIR | Out-Null
 
-# Determine dependency preset based on core preset
-$DepsPreset = "opensim-dependencies-windows"
+# Step 1: Verify Visual Studio installation
+Write-Host ""
+Write-Host "=== Step 1: Checking Visual Studio installation ===" -ForegroundColor Cyan
 
-# Create workspace directory
-New-Item -ItemType Directory -Path $WorkspaceDir -Force | Out-Null
+# Try to find Visual Studio 2022
+$programFilesX86 = ${env:ProgramFiles(x86)}
+$vsWhere = Join-Path $programFilesX86 "Microsoft Visual Studio\Installer\vswhere.exe"
 
-# Step 1: Install system dependencies (if requested or if first time)
-if ($DepsOnly -or (-not (Test-Path (Join-Path $SwigInstall "bin\swig.exe")))) {
-    Write-Host ""
-    Write-Host "Step 1: Installing system dependencies..." -ForegroundColor Cyan
-
-    Write-Host "NOTE: This script assumes Visual Studio 2022 is already installed." -ForegroundColor Yellow
-    Write-Host "      If not, please install VS 2022 Community with C++ workload first." -ForegroundColor Yellow
-    Write-Host ""
-
-    # Check for Visual Studio
-    $VSPath = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
-    if (-not (Test-Path $VSPath)) {
-        $VSPath = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat"
-    }
-    if (-not (Test-Path $VSPath)) {
-        $VSPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-    }
-
-    if (-not (Test-Path $VSPath)) {
-        Write-Host "ERROR: Visual Studio 2022 not found!" -ForegroundColor Red
-        Write-Host "Please install Visual Studio 2022 with C++ workload." -ForegroundColor Red
-        Write-Host "Download from: https://visualstudio.microsoft.com/downloads/" -ForegroundColor Yellow
+if (Test-Path $vsWhere) {
+    $vsPath = & $vsWhere -latest -property installationPath
+    if ($vsPath) {
+        Write-Host "Found Visual Studio 2022 at: $vsPath" -ForegroundColor Green
+    } else {
+        Write-Host "ERROR: Visual Studio 2022 not found" -ForegroundColor Red
+        Write-Host "Please install Visual Studio 2022" -ForegroundColor Yellow
         exit 1
     }
-
-    Write-Host "✓ Found Visual Studio 2022" -ForegroundColor Green
-
-    # Install other dependencies via Chocolatey
-    Write-Host "Checking for Chocolatey..."
-    if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-        Write-Host "Installing Chocolatey..."
-        Set-ExecutionPolicy Bypass -Scope Process -Force
-        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-    } else {
-        Write-Host "✓ Chocolatey already installed" -ForegroundColor Green
-    }
-
-    # Install required packages
-    Write-Host "Installing required packages via Chocolatey..."
-    choco install cmake.install --installargs '"ADD_CMAKE_TO_PATH=System"' -y
-    choco install python3 -y
-    choco install jdk8 -y
-
-    # Refresh environment
-    $env:ChocolateyInstall = Convert-Path "$((Get-Command choco).Path)\..\.."
-    Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
-    refreshenv
-
-    Write-Host "✓ System dependencies installed" -ForegroundColor Green
+} else {
+    Write-Host "WARNING: Could not verify Visual Studio installation" -ForegroundColor Yellow
 }
 
+# Step 2: Install SWIG via Chocolatey
+Write-Host ""
+Write-Host "=== Step 2: Installing SWIG ===" -ForegroundColor Cyan
+
+# Check if Chocolatey is installed
+$chocoCmd = Get-Command choco -ErrorAction SilentlyContinue
+if (-not $chocoCmd) {
+    Write-Host "ERROR: Chocolatey is not installed" -ForegroundColor Red
+    Write-Host "Install from: https://chocolatey.org/install" -ForegroundColor Yellow
+    exit 1
+}
+
+# Check if SWIG is already installed
+$swigCmd = Get-Command swig -ErrorAction SilentlyContinue
+if ($swigCmd) {
+    Write-Host "SWIG already installed at: $($swigCmd.Source)" -ForegroundColor Green
+    & swig -version
+} else {
+    Write-Host "Installing SWIG 4.1.1 via Chocolatey..."
+    choco install swig --version 4.1.1 --yes --limit-output --allow-downgrade
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to install SWIG"
+    }
+    # Refresh environment
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+}
+
+$SWIG_EXE = (Get-Command swig).Source
+$SWIG_DIR = Split-Path -Parent $SWIG_EXE
+$SWIG_DIR = Join-Path (Split-Path -Parent $SWIG_DIR) "share\swig"
+
+Write-Host "SWIG executable: $SWIG_EXE" -ForegroundColor Green
+Write-Host "SWIG directory: $SWIG_DIR" -ForegroundColor Green
+
+# Exit early if only installing dependencies
 if ($DepsOnly) {
     Write-Host ""
-    Write-Host "✓ Dependencies-only mode complete" -ForegroundColor Green
+    Write-Host "Dependencies check complete." -ForegroundColor Green
     exit 0
 }
 
-# Step 2: Download/Install SWIG
+# Step 3: Build OpenSim dependencies
 Write-Host ""
-Write-Host "Step 2: Setting up SWIG..." -ForegroundColor Cyan
+Write-Host "=== Step 3: Building OpenSim dependencies ===" -ForegroundColor Cyan
 
-# Note: SWIG Windows binary has swig.exe in root directory, not in bin/
-$SwigExe = Join-Path $SwigInstall "swig.exe"
-if (-not (Test-Path $SwigExe) -or $Force) {
-    Write-Host "Downloading SWIG 4.1.1 for Windows..."
+$DEPS_SOURCE = Join-Path $OPENSIM_ROOT "src\opensim-core\dependencies"
+$DEPS_BUILD_DIR = Join-Path $WORKSPACE_DIR "dependencies-build"
+$DEPS_INSTALL_DIR = Join-Path $WORKSPACE_DIR "dependencies-install"
 
-    $SwigZip = Join-Path $WorkspaceDir "swig.zip"
-    $SwigTmp = Join-Path $WorkspaceDir "swig-tmp"
-
-    # Download
-    $ProgressPreference = 'SilentlyContinue'
-    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri "http://prdownloads.sourceforge.net/swig/swigwin-4.1.1.zip" `
-        -OutFile $SwigZip -TimeoutSec 300
-
-    # Extract
-    if (Test-Path $SwigInstall) {
-        Remove-Item -Recurse -Force $SwigInstall
-    }
-    Expand-Archive -Path $SwigZip -DestinationPath $SwigTmp -Force
-    Move-Item (Join-Path $SwigTmp "swigwin-4.1.1") $SwigInstall
-    Remove-Item $SwigZip, $SwigTmp -Recurse -Force
-
-    Write-Host "✓ SWIG installed to $SwigInstall" -ForegroundColor Green
+# Check if dependencies are already built
+$DEPS_COMPLETE = Join-Path $DEPS_INSTALL_DIR ".build_complete"
+if ((Test-Path $DEPS_COMPLETE) -and -not $Force) {
+    Write-Host "Dependencies already built at $DEPS_INSTALL_DIR" -ForegroundColor Green
+    Write-Host "Use -Force to rebuild" -ForegroundColor Yellow
 } else {
-    Write-Host "✓ Using existing SWIG from $SwigInstall" -ForegroundColor Green
-}
-
-# Add SWIG to PATH (swig.exe is in the root directory)
-$env:PATH = "$SwigInstall;$env:PATH"
-
-# Verify SWIG
-$SwigVersion = & swig.exe -version 2>&1 | Select-String "SWIG Version"
-Write-Host "  SWIG version: $SwigVersion"
-
-# Check if we have a cached build
-$BuildComplete = Join-Path $OpensimInstall ".build_complete"
-if ((Test-Path $BuildComplete) -and -not $Force) {
-    Write-Host ""
-    Write-Host "✓ Using cached OpenSim build from $OpensimInstall" -ForegroundColor Green
-
-    # Verify cache
-    $SdkLib = Join-Path $OpensimInstall "sdk\lib"
-    if (Test-Path $SdkLib) {
-        Write-Host "✓ Cache validation passed" -ForegroundColor Green
-        Write-Host ""
-        Write-Host "OpenSim is ready! To force rebuild, use: -Force flag" -ForegroundColor Green
-        exit 0
-    } else {
-        Write-Host "Warning: Cache appears corrupted, rebuilding..." -ForegroundColor Yellow
-        $Force = $true
+    if ($Force) {
+        Write-Host "Force rebuild requested - removing existing directories" -ForegroundColor Yellow
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $DEPS_BUILD_DIR, $DEPS_INSTALL_DIR
     }
-}
 
-# Step 3: Build dependencies using CMake preset
-Write-Host ""
-Write-Host "Step 3: Building OpenSim dependencies..." -ForegroundColor Cyan
-Write-Host "This may take 15-20 minutes on first build..." -ForegroundColor Yellow
+    Write-Host "Building dependencies from scratch..."
 
-$DepsBuildDir = Join-Path $WorkspaceDir "dependencies-build"
-New-Item -ItemType Directory -Path $DepsBuildDir -Force | Out-Null
+    # Get CMake flags from preset
+    $PRESETS_FILE = Join-Path $OPENSIM_ROOT "CMakePresets.json"
+    $PARSE_SCRIPT = Join-Path $COMMON_DIR "parse_preset.py"
 
-Push-Location $DepsBuildDir
-try {
-    Write-Host "Configuring dependencies with CMake preset '$DepsPreset'..."
-    cmake $DepsSource --preset $DepsPreset `
-        -DCMAKE_INSTALL_PREFIX="$DepsInstall"
+    Write-Host "Extracting CMake flags from preset: opensim-dependencies-windows"
+    $CMAKE_FLAGS_STR = & python $PARSE_SCRIPT $PRESETS_FILE "opensim-dependencies-windows"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to parse preset"
+    }
 
+    $CMAKE_FLAGS = $CMAKE_FLAGS_STR -split ' '
+    Write-Host "CMake flags: $CMAKE_FLAGS_STR"
+
+    # Create build directory
+    New-Item -ItemType Directory -Force -Path $DEPS_BUILD_DIR | Out-Null
+    Set-Location $DEPS_BUILD_DIR
+
+    # Configure
+    Write-Host "Configuring dependencies..."
+
+    # Extract compiler flags from CMAKE_FLAGS and build the rest as CMake arguments
+    # We'll use 'cmake -E env' to set CXXFLAGS and CFLAGS like OpenSim's official CI
+    $otherFlags = @()
+    foreach ($flag in $CMAKE_FLAGS) {
+        # Skip C/CXX flags - we'll set these via environment
+        if (-not ($flag -match "CMAKE_C(XX)?_FLAGS")) {
+            $otherFlags += $flag
+        }
+    }
+
+    # Build cmake arguments (matching OpenSim's official CI approach)
+    $configArgs = @(
+        $DEPS_SOURCE,
+        '-G"Visual Studio 17 2022"',
+        "-A", "x64",
+        "-DCMAKE_INSTALL_PREFIX=$DEPS_INSTALL_DIR"
+    ) + $otherFlags
+
+    Write-Host "Running CMake configuration..."
+    # Use cmake -E env to set compiler flags like OpenSim's official CI
+    & cmake -E env CXXFLAGS="/MD /W0" CFLAGS="/MD /W0" cmake @configArgs
     if ($LASTEXITCODE -ne 0) {
         throw "CMake configuration failed"
     }
 
-    Write-Host "Building dependencies..."
-    cmake --build . --config Release -j $Jobs
-
+    # Build
+    Write-Host "Building dependencies (this may take 15-30 minutes)..."
+    & cmake --build . --config $BuildType -j $Jobs
     if ($LASTEXITCODE -ne 0) {
-        throw "Dependencies build failed"
+        throw "Build failed"
     }
 
-    Write-Host "✓ Dependencies built successfully" -ForegroundColor Green
-} finally {
-    Pop-Location
+    # Mark as complete
+    New-Item -ItemType File -Path $DEPS_COMPLETE -Force | Out-Null
+    Write-Host "Dependencies build complete" -ForegroundColor Green
 }
 
-# Step 4: Build OpenSim core using CMake preset
+# Step 4: Build OpenSim core
 Write-Host ""
-Write-Host "Step 4: Building OpenSim core..." -ForegroundColor Cyan
-Write-Host "This may take 20-30 minutes on first build..." -ForegroundColor Yellow
+Write-Host "=== Step 4: Building OpenSim core ===" -ForegroundColor Cyan
 
-$OpensimBuildDir = Join-Path $WorkspaceDir "opensim-build"
-New-Item -ItemType Directory -Path $OpensimBuildDir -Force | Out-Null
+$OPENSIM_SOURCE = Join-Path $OPENSIM_ROOT "src\opensim-core"
+$OPENSIM_BUILD_DIR = Join-Path $WORKSPACE_DIR "opensim-build"
+$OPENSIM_INSTALL_DIR = Join-Path $WORKSPACE_DIR "opensim-install"
 
-Push-Location $OpensimBuildDir
-try {
-    Write-Host "Configuring OpenSim with CMake preset '$Preset'..."
-    cmake $OpensimSource --preset $Preset `
-        -DCMAKE_INSTALL_PREFIX="$OpensimInstall" `
-        -DOPENSIM_DEPENDENCIES_DIR="$DepsInstall" `
-        -DCMAKE_PREFIX_PATH="$DepsInstall" `
-        -DSWIG_DIR="$SwigInstall\Lib" `
-        -DSWIG_EXECUTABLE="$SwigInstall\swig.exe"
+# Check if OpenSim is already built
+$OPENSIM_COMPLETE = Join-Path $OPENSIM_INSTALL_DIR ".build_complete"
+if ((Test-Path $OPENSIM_COMPLETE) -and -not $Force) {
+    Write-Host "OpenSim already built at $OPENSIM_INSTALL_DIR" -ForegroundColor Green
+    Write-Host "Use -Force to rebuild" -ForegroundColor Yellow
+} else {
+    if ($Force) {
+        Write-Host "Force rebuild requested - removing existing directories" -ForegroundColor Yellow
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $OPENSIM_BUILD_DIR, $OPENSIM_INSTALL_DIR
+    }
 
+    Write-Host "Building OpenSim from scratch..."
+
+    # Get CMake flags from preset
+    $PRESETS_FILE = Join-Path $OPENSIM_ROOT "CMakePresets.json"
+    $PARSE_SCRIPT = Join-Path $COMMON_DIR "parse_preset.py"
+
+    Write-Host "Extracting CMake flags from preset: opensim-core-windows"
+    $CMAKE_FLAGS_STR = & python $PARSE_SCRIPT $PRESETS_FILE "opensim-core-windows"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to parse preset"
+    }
+
+    $CMAKE_FLAGS = $CMAKE_FLAGS_STR -split ' '
+    Write-Host "CMake flags: $CMAKE_FLAGS_STR"
+
+    # Copy CMakePresets.json to OpenSim source directory
+    Write-Host "Copying CMakePresets.json to OpenSim source directory..."
+    Copy-Item $PRESETS_FILE $OPENSIM_SOURCE -Force
+
+    # Create build directory
+    New-Item -ItemType Directory -Force -Path $OPENSIM_BUILD_DIR | Out-Null
+    Set-Location $OPENSIM_BUILD_DIR
+
+    # Configure
+    Write-Host "Configuring OpenSim..."
+
+    # Build cmake arguments (matching OpenSim's official CI approach)
+    $configArgs = @(
+        $OPENSIM_SOURCE,
+        "--preset", "opensim-core-windows",
+        "-DCMAKE_INSTALL_PREFIX=$OPENSIM_INSTALL_DIR",
+        "-DOPENSIM_DEPENDENCIES_DIR=$DEPS_INSTALL_DIR",
+        "-DCMAKE_PREFIX_PATH=$DEPS_INSTALL_DIR",
+        "-DSWIG_DIR=$SWIG_DIR",
+        "-DSWIG_EXECUTABLE=$SWIG_EXE"
+    )
+
+    Write-Host "Running CMake configuration..."
+    # Use cmake -E env to set compiler flags like OpenSim's official CI
+    & cmake -E env CXXFLAGS="/MD /W0" CFLAGS="/MD /W0" cmake @configArgs
     if ($LASTEXITCODE -ne 0) {
         throw "CMake configuration failed"
     }
 
-    Write-Host "Building OpenSim core..."
-    cmake --build . --config Release -j $Jobs
-
+    # Build
+    Write-Host "Building OpenSim (this may take 20-40 minutes)..."
+    & cmake --build . --config $BuildType -j $Jobs
     if ($LASTEXITCODE -ne 0) {
-        throw "OpenSim build failed"
+        throw "Build failed"
     }
 
+    # Install
     Write-Host "Installing OpenSim..."
-    cmake --install .
-
+    & cmake --install . --config $BuildType
     if ($LASTEXITCODE -ne 0) {
-        throw "OpenSim installation failed"
+        throw "Installation failed"
     }
 
-    # Mark build as complete
-    New-Item -ItemType File -Path $BuildComplete -Force | Out-Null
-
-    Write-Host "✓ OpenSim build complete" -ForegroundColor Green
-} finally {
-    Pop-Location
+    # Mark as complete
+    New-Item -ItemType File -Path $OPENSIM_COMPLETE -Force | Out-Null
+    Write-Host "OpenSim build complete" -ForegroundColor Green
 }
 
-# Summary
 Write-Host ""
-Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Green
-Write-Host "✓ OpenSim setup complete!" -ForegroundColor Green
-Write-Host "═══════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "OpenSim setup complete!" -ForegroundColor Green
+Write-Host "Libraries installed in: $OPENSIM_INSTALL_DIR" -ForegroundColor Green
 Write-Host ""
-Write-Host "OpenSim installed at: $OpensimInstall" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "  1. Build Python bindings: make build (or: uv pip install -e .[test])" -ForegroundColor White
-Write-Host "  2. Run tests: make test (or: uv run pytest tests/)" -ForegroundColor White
-Write-Host ""
-Write-Host "Environment variables:" -ForegroundColor Yellow
-Write-Host "  OPENSIM_INSTALL_DIR=$OpensimInstall" -ForegroundColor White
-Write-Host "  PATH includes SWIG: $SwigInstall" -ForegroundColor White
+Write-Host "Next steps:" -ForegroundColor Cyan
+Write-Host "Run 'python -m build' to build the Python bindings" -ForegroundColor White
