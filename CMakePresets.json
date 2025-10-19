@@ -69,8 +69,8 @@
         "strategy": "set"
       },
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/MD /W0",
-        "CMAKE_C_FLAGS": "/MD /W0"
+        "CMAKE_CXX_FLAGS": "/MD /W0 /utf-8",
+        "CMAKE_C_FLAGS": "/MD /W0 /utf-8"
       }
     },
     {

@@ -375,6 +375,7 @@ macro(OpenSimAddPythonModule)
 
     # SWIG command arguments
     set(_swig_common_args -c++ -python
+            -DSWIG_PYTHON
             -I${CMAKE_CURRENT_SOURCE_DIR}/src/opensim-core
             -I${CMAKE_CURRENT_SOURCE_DIR}/src/opensim-core/Bindings
             -I${CMAKE_CURRENT_SOURCE_DIR}/src/opensim-core/Bindings/Python/swig
