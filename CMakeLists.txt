@@ -397,18 +397,34 @@ macro(OpenSimAddPythonModule)
 
     # Link against OpenSim libraries
     if(PYOPENSIM_BUILD_WITH_OPENSIM)
+        # Debug: Show what we're looking for
+        message(STATUS "=== OpenSim Library Linking Debug ===")
+        message(STATUS "OPENSIM_INSTALL_DIR: ${OPENSIM_INSTALL_DIR}")
+        message(STATUS "LIB_PREFIX: '${LIB_PREFIX}'")
+        message(STATUS "LIB_EXT: '${LIB_EXT}'")
+
+        # On Windows, check if lib directory exists
+        if(WIN32)
+            if(EXISTS "${OPENSIM_INSTALL_DIR}/sdk/lib")
+                file(GLOB WIN_LIB_FILES "${OPENSIM_INSTALL_DIR}/sdk/lib/*")
+                message(STATUS "Files in sdk/lib: ${WIN_LIB_FILES}")
+            else()
+                message(WARNING "sdk/lib directory does not exist!")
+            endif()
+        endif()
+
         # Platform-specific library paths
         # OpenSim core libraries (always in sdk/lib)
         set(OSIM_LIBS
-            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimCommon${LIB_EXT}"
-            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimSimulation${LIB_EXT}"
-            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimActuators${LIB_EXT}"
-            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimAnalyses${LIB_EXT}"
-            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimTools${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimCommon${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimSimulation${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimActuators${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimAnalyses${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimTools${LIB_EXT}"
         )
-        
+
         # Simbody libraries - check both lib and lib64, prefer lib64
-        set(SIMBODY_LIB_NAMES "libSimTKcommon" "libSimTKmath" "libSimTKsimbody")
+        set(SIMBODY_LIB_NAMES "${LIB_PREFIX}SimTKcommon" "${LIB_PREFIX}SimTKmath" "${LIB_PREFIX}SimTKsimbody")
         foreach(LIB_NAME ${SIMBODY_LIB_NAMES})
             set(LIB_FOUND FALSE)
             # Check lib64 first
@@ -434,14 +450,14 @@ macro(OpenSimAddPythonModule)
 
         # Add optional libraries if they exist
         set(OPTIONAL_LIBS)
-        list(APPEND OPTIONAL_LIBS 
-            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimLepton${LIB_EXT}"
-            "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimdocopt${LIB_EXT}"
-            "${OPENSIM_INSTALL_DIR}/sdk/lib/libezc3d${LIB_EXT}")
+        list(APPEND OPTIONAL_LIBS
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimLepton${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimdocopt${LIB_EXT}"
+            "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}ezc3d${LIB_EXT}")
             
         # Also check dependencies directories for ezc3d and spdlog (they may be in lib64)
-        file(GLOB EZCD_DEPS_LIBS "${OPENSIM_DEPENDENCIES_DIR}/ezc3d/lib*/libezc3d${LIB_EXT}*")
-        file(GLOB SPDLOG_DEPS_LIBS "${OPENSIM_DEPENDENCIES_DIR}/spdlog/lib*/libspdlog${LIB_EXT}*")
+        file(GLOB EZCD_DEPS_LIBS "${OPENSIM_DEPENDENCIES_DIR}/ezc3d/lib*/${LIB_PREFIX}ezc3d${LIB_EXT}*")
+        file(GLOB SPDLOG_DEPS_LIBS "${OPENSIM_DEPENDENCIES_DIR}/spdlog/lib*/${LIB_PREFIX}spdlog${LIB_EXT}*")
         
         if(EZCD_DEPS_LIBS)
             list(GET EZCD_DEPS_LIBS 0 FIRST_EZCD_LIB)
@@ -461,6 +477,8 @@ macro(OpenSimAddPythonModule)
         foreach(LIB ${OSIM_LIBS})
             if(EXISTS "${LIB}")
                 list(APPEND EXISTING_LIBS "${LIB}")
+            else()
+                message(WARNING "Required OpenSim library not found: ${LIB}")
             endif()
         endforeach()
         foreach(LIB ${OPTIONAL_LIBS})
@@ -469,6 +487,11 @@ macro(OpenSimAddPythonModule)
             endif()
         endforeach()
 
+        if(NOT EXISTING_LIBS)
+            message(FATAL_ERROR "No OpenSim libraries found to link against! Check OPENSIM_INSTALL_DIR: ${OPENSIM_INSTALL_DIR}")
+        endif()
+
+        message(STATUS "Linking ${_libname} against: ${EXISTING_LIBS}")
         target_link_libraries(${_libname} ${EXISTING_LIBS})
         
         # Include directories
@@ -594,13 +617,12 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
     install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
     
     # Install OpenSim libraries - platform specific paths
-    # Linux/macOS: OpenSim libraries in sdk/lib/ directory
     set(INSTALL_LIBS
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimCommon${LIB_EXT}"
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimSimulation${LIB_EXT}"
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimActuators${LIB_EXT}"
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimAnalyses${LIB_EXT}"
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimTools${LIB_EXT}"
+        "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimCommon${LIB_EXT}"
+        "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimSimulation${LIB_EXT}"
+        "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimActuators${LIB_EXT}"
+        "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimAnalyses${LIB_EXT}"
+        "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimTools${LIB_EXT}"
     )
 
     
@@ -685,16 +707,53 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
                 message(STATUS "MISSING required versioned library: ${LIB}")
             endif()
         endforeach()
+    elseif(WIN32)
+        # Windows - install both .lib and .dll files
+        message(STATUS "Installing SimTK libraries for Windows...")
+
+        # On Windows, .lib files are in lib/ and .dll files are in bin/
+        set(SIMBODY_LIB_DIR "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib")
+        set(SIMBODY_BIN_DIR "${OPENSIM_INSTALL_DIR}/sdk/Simbody/bin")
+
+        # Install .lib files (import libraries)
+        if(EXISTS "${SIMBODY_LIB_DIR}")
+            file(GLOB SIMBODY_LIB_FILES "${SIMBODY_LIB_DIR}/*.lib")
+            if(SIMBODY_LIB_FILES)
+                message(STATUS "Found SimTK .lib files: ${SIMBODY_LIB_FILES}")
+                foreach(LIB ${SIMBODY_LIB_FILES})
+                    install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
+                endforeach()
+            else()
+                message(WARNING "No .lib files found in ${SIMBODY_LIB_DIR}")
+            endif()
+        else()
+            message(WARNING "Simbody lib directory does not exist: ${SIMBODY_LIB_DIR}")
+        endif()
+
+        # Install .dll files (runtime libraries)
+        if(EXISTS "${SIMBODY_BIN_DIR}")
+            file(GLOB SIMBODY_DLL_FILES "${SIMBODY_BIN_DIR}/*.dll")
+            if(SIMBODY_DLL_FILES)
+                message(STATUS "Found SimTK .dll files: ${SIMBODY_DLL_FILES}")
+                foreach(DLL ${SIMBODY_DLL_FILES})
+                    install(FILES "${DLL}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
+                endforeach()
+            else()
+                message(WARNING "No .dll files found in ${SIMBODY_BIN_DIR}")
+            endif()
+        else()
+            message(WARNING "Simbody bin directory does not exist: ${SIMBODY_BIN_DIR}")
+        endif()
     else()
         # Linux - ensure both versioned and symlinked libraries are installed
         message(STATUS "Installing SimTK libraries for Linux...")
-        
+
         # Check both lib and lib64 directories for SimTK libraries
         set(SIMBODY_SEARCH_PATHS
             "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib"
             "${OPENSIM_INSTALL_DIR}/sdk/Simbody/lib64"
         )
-        
+
         set(SIMBODY_ALL_LIBS)
         foreach(SEARCH_PATH ${SIMBODY_SEARCH_PATHS})
             message(STATUS "Searching for SimTK libraries in: ${SEARCH_PATH}")
@@ -706,9 +765,9 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
                 message(STATUS "No SimTK libraries in ${SEARCH_PATH}")
             endif()
         endforeach()
-        
+
         message(STATUS "All found SimTK libraries: ${SIMBODY_ALL_LIBS}")
-        
+
         if(SIMBODY_ALL_LIBS)
             # Install all found libraries (both versioned and symlinks)
             foreach(LIB ${SIMBODY_ALL_LIBS})
@@ -718,9 +777,9 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
         else()
             message(WARNING "No SimTK libraries found in any search paths: ${SIMBODY_SEARCH_PATHS}")
         endif()
-        
+
         # Also check dependencies-install directory as fallback
-        file(GLOB DEPS_SIMBODY_LIBS 
+        file(GLOB DEPS_SIMBODY_LIBS
             "${OPENSIM_DEPENDENCIES_DIR}/simbody/lib*/libSimTK*.so*"
         )
         if(DEPS_SIMBODY_LIBS)
@@ -734,9 +793,9 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
     
     # Install optional libraries - platform specific paths
     set(OPTIONAL_INSTALL_LIBS
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimLepton${LIB_EXT}"
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libosimdocopt${LIB_EXT}"
-        "${OPENSIM_INSTALL_DIR}/sdk/lib/libezc3d${LIB_EXT}"
+        "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimLepton${LIB_EXT}"
+        "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimdocopt${LIB_EXT}"
+        "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}ezc3d${LIB_EXT}"
     )
 
     
