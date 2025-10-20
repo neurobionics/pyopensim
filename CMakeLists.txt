@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.15...3.27)
 project(pyopensim VERSION "0.0.1")
 
-# Set C++ standard to 14 (required by OpenSim)
-set(CMAKE_CXX_STANDARD 14)
+# Set C++ standard to 17 (required by OpenSim 5.0+)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set architecture for macOS builds
