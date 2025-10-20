@@ -156,12 +156,26 @@ if [ -f "$REPO_ROOT/CMakePresets.json" ]; then
     cp "$REPO_ROOT/CMakePresets.json" "$SOURCE_DIR/"
 fi
 
+# Apply patch to skip Examples directory (avoids find_package(OpenSim) issue)
+PATCH_FILE="$REPO_ROOT/patches/skip-examples.patch"
+OPENSIM_CMAKE="$SOURCE_DIR/OpenSim/CMakeLists.txt"
+if [ -f "$PATCH_FILE" ]; then
+    echo "Applying patch to skip Examples directory..."
+    # Check if already patched
+    if ! grep -q 'if(BUILD_API_EXAMPLES)' "$OPENSIM_CMAKE" || ! grep -A2 'if(BUILD_API_EXAMPLES)' "$OPENSIM_CMAKE" | grep -q 'add_subdirectory(Examples)'; then
+        # Apply patch using sed
+        sed -i.bak 's/add_subdirectory(Examples)/if(BUILD_API_EXAMPLES)\n    add_subdirectory(Examples)\nendif()/' "$OPENSIM_CMAKE"
+        echo "Patch applied successfully"
+    else
+        echo "Patch already applied, skipping"
+    fi
+fi
+
 # Configure using CMake preset
 echo "Configuring with CMake preset: $PRESET"
 cmake "$SOURCE_DIR" \
     --preset "$PRESET" \
     -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
-    -DOPENSIM_INSTALL_DIR="$INSTALL_DIR" \
     -DOPENSIM_DEPENDENCIES_DIR="$DEPS_DIR" \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR" \
     -DSWIG_DIR="$SWIG_DIR" \

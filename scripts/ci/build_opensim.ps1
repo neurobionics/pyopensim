@@ -160,6 +160,23 @@ if ($Force -or -not (Test-Path $BUILD_COMPLETE)) {
     Write-Host "Copying CMakePresets.json to OpenSim source directory..."
     Copy-Item $PRESETS_FILE $OPENSIM_SOURCE -Force
 
+    # Apply patch to skip Examples directory (avoids find_package(OpenSim) issue)
+    $PATCH_FILE = Join-Path $PROJECT_ROOT "patches\skip-examples.patch"
+    $OPENSIM_CMAKE = Join-Path $OPENSIM_SOURCE "OpenSim\CMakeLists.txt"
+    if (Test-Path $PATCH_FILE) {
+        Write-Host "Applying patch to skip Examples directory..."
+        # Check if already patched
+        $content = Get-Content $OPENSIM_CMAKE -Raw
+        if ($content -notmatch 'if\(BUILD_API_EXAMPLES\)[\s\S]*add_subdirectory\(Examples\)') {
+            # Simple text replacement instead of git apply (more reliable on Windows)
+            $content = $content -replace 'add_subdirectory\(Examples\)', "if(BUILD_API_EXAMPLES)`n    add_subdirectory(Examples)`nendif()"
+            Set-Content -Path $OPENSIM_CMAKE -Value $content
+            Write-Host "Patch applied successfully"
+        } else {
+            Write-Host "Patch already applied, skipping"
+        }
+    }
+
     # Create build directory
     New-Item -ItemType Directory -Force -Path $OPENSIM_BUILD_DIR | Out-Null
     Set-Location $OPENSIM_BUILD_DIR
@@ -170,7 +187,6 @@ if ($Force -or -not (Test-Path $BUILD_COMPLETE)) {
         $OPENSIM_SOURCE,
         "--preset", "opensim-core-windows",
         "-DCMAKE_INSTALL_PREFIX=$OPENSIM_INSTALL",
-        "-DOPENSIM_INSTALL_DIR=$OPENSIM_INSTALL",
         "-DOPENSIM_DEPENDENCIES_DIR=$DEPS_INSTALL",
         "-DCMAKE_PREFIX_PATH=$DEPS_INSTALL",
         "-DSWIG_DIR=$SWIG_DIR",
