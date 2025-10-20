@@ -89,6 +89,13 @@ message(STATUS "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
 message(STATUS "Python3_LIBRARIES: ${Python3_LIBRARIES}")
 message(STATUS "Python3_NumPy_INCLUDE_DIRS: ${Python3_NumPy_INCLUDE_DIRS}")
 
+# Windows-specific compiler flags
+if(WIN32 AND MSVC)
+    # Add UTF-8 support flag to fix Unicode compilation issues
+    # Add /bigobj flag to handle large object files (needed for spdlog and SWIG)
+    add_compile_options(/utf-8 /bigobj)
+endif()
+
 # Options for OpenSim integration
 option(PYOPENSIM_BUILD_WITH_OPENSIM "Build with OpenSim support" ON)
 option(PYOPENSIM_USE_SYSTEM_OPENSIM "Use system-installed OpenSim if available" OFF)
