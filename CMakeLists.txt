@@ -56,7 +56,11 @@ elseif(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/../build/opensim-workspace/swig-insta
     endif()
     message(STATUS "Using workspace SWIG_EXECUTABLE: ${SWIG_EXECUTABLE}")
     message(STATUS "Using workspace SWIG_DIR: ${SWIG_DIR}")
-elseif(EXISTS "$ENV{HOME}/swig/bin/swig")
+elseif(WIN32 AND EXISTS "$ENV{USERPROFILE}/swig/bin/swig.exe")
+    # Windows: Check user profile directory
+    set(SWIG_EXECUTABLE "$ENV{USERPROFILE}/swig/bin/swig.exe")
+elseif(UNIX AND EXISTS "$ENV{HOME}/swig/bin/swig")
+    # Unix: Check home directory
     set(SWIG_EXECUTABLE "$ENV{HOME}/swig/bin/swig")
 else()
     # Let find_package try to locate SWIG
@@ -252,12 +256,13 @@ endif()
 # ==============================================================================
 
 # Location of the opensim python package in the build directory, for testing.
-if(MSVC OR XCODE)
-    # Multi-configuration generators like MSVC and XCODE use one build tree for
-    # all configurations.
+if(CMAKE_CONFIGURATION_TYPES)
+    # Multi-configuration generators (MSVC, Xcode, Ninja Multi-Config) use one build tree
+    # for all configurations.
     set(OPENSIM_PYTHON_BINARY_DIR
         "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}")
 else()
+    # Single-configuration generators (Unix Makefiles, Ninja)
     set(OPENSIM_PYTHON_BINARY_DIR
         "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}")
 endif()
@@ -516,7 +521,10 @@ macro(OpenSimAddPythonModule)
         FOLDER "Bindings"
         PREFIX ""
     )
-    if(APPLE)
+    if(WIN32)
+        # Windows Python extensions use .pyd
+        set_target_properties(${_libname} PROPERTIES SUFFIX ".pyd")
+    elseif(APPLE)
         # Defaults to .dylib; change to .so.
         set_target_properties(${_libname} PROPERTIES SUFFIX ".so")
     endif()
@@ -528,12 +536,14 @@ macro(OpenSimAddPythonModule)
             INSTALL_RPATH "@loader_path/lib"
             BUILD_RPATH "@loader_path/lib"
         )
-    else()
+    elseif(UNIX)
+        # Linux and other Unix systems
         set_target_properties(${_libname} PROPERTIES
             BUILD_RPATH_USE_ORIGIN TRUE
             INSTALL_RPATH "$ORIGIN/lib"
             BUILD_RPATH "$ORIGIN/lib"
         )
+    # Windows doesn't use RPATH - DLL loading is handled via PATH and dll directories
     endif()
 
 
@@ -625,12 +635,27 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
         "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimTools${LIB_EXT}"
     )
 
-    
     foreach(LIB ${INSTALL_LIBS})
         if(EXISTS "${LIB}")
             install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
         endif()
     endforeach()
+
+    # On Windows, also install runtime DLLs from bin/ directory
+    if(WIN32)
+        set(INSTALL_DLLS
+            "${OPENSIM_INSTALL_DIR}/bin/osimCommon.dll"
+            "${OPENSIM_INSTALL_DIR}/bin/osimSimulation.dll"
+            "${OPENSIM_INSTALL_DIR}/bin/osimActuators.dll"
+            "${OPENSIM_INSTALL_DIR}/bin/osimAnalyses.dll"
+            "${OPENSIM_INSTALL_DIR}/bin/osimTools.dll"
+        )
+        foreach(DLL ${INSTALL_DLLS})
+            if(EXISTS "${DLL}")
+                install(FILES "${DLL}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
+            endif()
+        endforeach()
+    endif()
 
     if(APPLE)
         # Debug: List all directories that might contain SimTK libraries
@@ -798,12 +823,25 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
         "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}ezc3d${LIB_EXT}"
     )
 
-    
     foreach(LIB ${OPTIONAL_INSTALL_LIBS})
         if(EXISTS "${LIB}")
             install(FILES "${LIB}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
         endif()
     endforeach()
+
+    # On Windows, also install optional runtime DLLs
+    if(WIN32)
+        set(OPTIONAL_INSTALL_DLLS
+            "${OPENSIM_INSTALL_DIR}/bin/osimLepton.dll"
+            "${OPENSIM_INSTALL_DIR}/bin/osimdocopt.dll"
+            "${OPENSIM_INSTALL_DIR}/bin/ezc3d.dll"
+        )
+        foreach(DLL ${OPTIONAL_INSTALL_DLLS})
+            if(EXISTS "${DLL}")
+                install(FILES "${DLL}" DESTINATION ${CMAKE_INSTALL_PREFIX}/pyopensim/lib)
+            endif()
+        endforeach()
+    endif()
 endif()
 
 # Install stub files for IDE support
