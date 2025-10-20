@@ -138,7 +138,8 @@ fi
 
 echo "  CMake flags: $CMAKE_FLAGS"
 
-cmake "$SOURCE_DIR" \
+# Use eval to properly handle quoted arguments in CMAKE_FLAGS
+eval cmake "$SOURCE_DIR" \
     $CMAKE_FLAGS \
     -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR"
 

@@ -58,10 +58,15 @@ jobs:
               matrix=$(echo $matrix | jq '. += [{"os": "macos-latest"}]')
             fi
             if [ "${{ inputs.build_windows }}" = "true" ]; then
-              matrix=$(echo $matrix | jq '. += [{"os": "windows-latest"}]')
+              # Pin to windows-2022 to match official OpenSim CI
+              # windows-latest now points to Windows Server 2025 (as of Sept 2025)
+              # but OpenSim is tested on windows-2022
+              matrix=$(echo $matrix | jq '. += [{"os": "windows-2022"}]')
             fi
           else
-            matrix='[{"os": "ubuntu-latest"}, {"os": "macos-latest"}, {"os": "windows-latest"}]'
+            # Pin to windows-2022 to match official OpenSim CI and ensure consistent build environment
+            # Note: windows-latest migrated to Windows Server 2025 in Sept 2025
+            matrix='[{"os": "ubuntu-latest"}, {"os": "macos-latest"}, {"os": "windows-2022"}]'
           fi
           echo "matrix={\"include\":$(echo $matrix)}" >> $GITHUB_OUTPUT
 

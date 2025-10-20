@@ -66,21 +66,28 @@ if ($Force -or -not (Test-Path $BUILD_COMPLETE)) {
     Write-Host "`n=== Step 1: Installing SWIG ===" -ForegroundColor Cyan
     Write-Host "Installing SWIG 4.1.1 via Chocolatey..."
 
-    # Check if SWIG is already installed
-    $swigInstalled = Get-Command swig -ErrorAction SilentlyContinue
-    if ($swigInstalled) {
-        Write-Host "SWIG already installed at: $($swigInstalled.Source)" -ForegroundColor Green
-        & swig -version
-    } else {
-        choco install swig --version 4.1.1 --yes --limit-output --allow-downgrade
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to install SWIG"
-        }
-        # Refresh environment to get swig in PATH
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    # Always install SWIG 4.1.1, forcing downgrade/reinstall if needed
+    # This matches the official OpenSim CI approach and ensures we get the exact version
+    # The --force flag is critical: without it, chocolatey won't downgrade from 4.3.1 (pre-installed on GitHub Actions)
+    choco install swig --version 4.1.1 --yes --limit-output --allow-downgrade --force
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to install SWIG 4.1.1"
     }
 
-    $SWIG_EXE = (Get-Command swig).Source
+    # Refresh environment to get swig in PATH
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+    # Verify installation
+    Write-Host "`nVerifying SWIG installation:" -ForegroundColor Cyan
+    $swigCmd = Get-Command swig -ErrorAction SilentlyContinue
+    if (-not $swigCmd) {
+        throw "SWIG not found in PATH after installation"
+    }
+
+    Write-Host "SWIG installed at: $($swigCmd.Source)" -ForegroundColor Green
+    & swig -version
+
+    $SWIG_EXE = $swigCmd.Source
     $SWIG_DIR = Split-Path -Parent $SWIG_EXE
     $SWIG_DIR = Join-Path (Split-Path -Parent $SWIG_DIR) "share\swig"
 
