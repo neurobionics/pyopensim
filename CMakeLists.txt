@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15...3.27)
 project(pyopensim VERSION "0.0.1")
 
-# Set C++ standard to 17 (required by OpenSim 5.0+)
+# Set C++ standard to 17 (required by OpenSim 4.5+)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -64,69 +64,9 @@ else()
 endif()
 find_package(SWIG 4.1.1 REQUIRED)
 
-# Try to find Python3 with Development components, fallback gracefully for cibuildwheel
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
-find_package(Python3 COMPONENTS Development QUIET)
-
-# If Development component wasn't found, try alternative approach for cibuildwheel/manylinux
-if(NOT Python3_Development_FOUND)
-    message(STATUS "Python3 Development component not found via find_package, trying manual detection...")
-    
-    # Get Python include directory manually
-    execute_process(
-        COMMAND "${Python3_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_path('include'))"
-        OUTPUT_VARIABLE Python3_INCLUDE_DIRS
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        RESULT_VARIABLE PYTHON_INCLUDE_RESULT
-    )
-    
-    # Get Python library path manually
-    execute_process(
-        COMMAND "${Python3_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR') or '')"
-        OUTPUT_VARIABLE PYTHON_LIBDIR
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    
-    execute_process(
-        COMMAND "${Python3_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_config_var('LDLIBRARY') or sysconfig.get_config_var('LIBRARY') or '')"
-        OUTPUT_VARIABLE PYTHON_LIBRARY_NAME
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    
-    if(PYTHON_INCLUDE_RESULT EQUAL 0 AND Python3_INCLUDE_DIRS AND EXISTS "${Python3_INCLUDE_DIRS}")
-        message(STATUS "Found Python include directory: ${Python3_INCLUDE_DIRS}")
-        
-        # Try to find the library file
-        if(PYTHON_LIBDIR AND PYTHON_LIBRARY_NAME)
-            set(Python3_LIBRARY_CANDIDATES
-                "${PYTHON_LIBDIR}/${PYTHON_LIBRARY_NAME}"
-                "${PYTHON_LIBDIR}/lib${PYTHON_LIBRARY_NAME}"
-            )
-            
-            foreach(candidate ${Python3_LIBRARY_CANDIDATES})
-                if(EXISTS "${candidate}")
-                    set(Python3_LIBRARIES "${candidate}")
-                    message(STATUS "Found Python library: ${Python3_LIBRARIES}")
-                    break()
-                endif()
-            endforeach()
-        endif()
-        
-        # If we found includes but not libraries, that's often OK for SWIG bindings
-        # Many Python installations (especially in containers) use dynamic linking
-        if(NOT Python3_LIBRARIES)
-            message(STATUS "Python development libraries not found, but includes are available")
-            message(STATUS "This is often acceptable for SWIG bindings in containerized environments")
-            set(Python3_LIBRARIES "") # Set empty to avoid undefined variable errors
-        endif()
-        
-        set(Python3_Development_FOUND TRUE)
-    else()
-        message(FATAL_ERROR "Could not find Python development headers. Please install python3-dev or python3-devel package.")
-    endif()
-else()
-    message(STATUS "Found Python3 Development component via find_package")
-endif()
+# Find Python3 with all required components (like opensim-core does)
+# Note: NumPy component may not be available in older CMake, so we find it manually below
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 
 # Find NumPy headers manually (as CMake NumPy component may not be available)
 execute_process(
@@ -140,7 +80,10 @@ if(NOT NumPy_FIND_RESULT EQUAL 0)
     message(FATAL_ERROR "NumPy not found - required for SWIG bindings")
 endif()
 
-message(STATUS "Found NumPy include directory: ${Python3_NumPy_INCLUDE_DIRS}")
+message(STATUS "Python3_VERSION: ${Python3_VERSION}")
+message(STATUS "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
+message(STATUS "Python3_LIBRARIES: ${Python3_LIBRARIES}")
+message(STATUS "Python3_NumPy_INCLUDE_DIRS: ${Python3_NumPy_INCLUDE_DIRS}")
 
 # Options for OpenSim integration
 option(PYOPENSIM_BUILD_WITH_OPENSIM "Build with OpenSim support" ON)
@@ -418,9 +361,10 @@ macro(OpenSimAddPythonModule)
     elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "MSVC")
         # Don't warn about deprecated functions and const const T
         # /MP enables parallel compilation (helps prevent timeout)
+        # /bigobj enables large object files (required for SWIG-generated wrapper code)
         # /utf-8 enables UTF-8 source and execution character sets (required by newer spdlog/fmt)
         # /DSWIG_PYTHON enables SWIG Python compatibility macros (fixes SWIG_Python_AppendOutput issues)
-        set(_COMPILE_FLAGS "/wd4996 /wd4114 /MP /utf-8 /DSWIG_PYTHON")
+        set(_COMPILE_FLAGS "/wd4996 /wd4114 /MP /bigobj /utf-8 /DSWIG_PYTHON")
     endif()
     if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang" AND
             NOT (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "10"))
@@ -436,7 +380,10 @@ macro(OpenSimAddPythonModule)
             "${Python3_INCLUDE_DIRS}"
             "${Python3_NumPy_INCLUDE_DIRS}")
     
-    # Python library linking (handle static linking case on macOS and missing libraries)
+    # Python library linking
+    # On macOS, the python interpreter might link to the python library
+    # statically, in which case we do not want to link dynamically to the
+    # python library. This situation occurs with Anaconda's python.
     execute_process(COMMAND "${Python3_EXECUTABLE}" -c
         "import sysconfig; print(sysconfig.get_config_var('LDSHARED'))"
         OUTPUT_VARIABLE PYTHON_LDSHARED
@@ -444,12 +391,8 @@ macro(OpenSimAddPythonModule)
     if("${PYTHON_LDSHARED}" MATCHES "dynamic_lookup")
         set_target_properties(${_libname} PROPERTIES LINK_FLAGS
             "-undefined dynamic_lookup")
-    elseif(Python3_LIBRARIES)
-        target_link_libraries(${_libname} ${Python3_LIBRARIES})
     else()
-        # No Python libraries found, but this is often OK for SWIG bindings
-        # in containerized environments where Python symbols are resolved at runtime
-        message(STATUS "Skipping Python library linking (symbols resolved at runtime)")
+        target_link_libraries(${_libname} ${Python3_LIBRARIES})
     endif()
 
     # Link against OpenSim libraries
