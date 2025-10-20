@@ -161,6 +161,7 @@ echo "Configuring with CMake preset: $PRESET"
 cmake "$SOURCE_DIR" \
     --preset "$PRESET" \
     -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+    -DOPENSIM_INSTALL_DIR="$INSTALL_DIR" \
     -DOPENSIM_DEPENDENCIES_DIR="$DEPS_DIR" \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR" \
     -DSWIG_DIR="$SWIG_DIR" \

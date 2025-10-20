@@ -170,6 +170,7 @@ if ($Force -or -not (Test-Path $BUILD_COMPLETE)) {
         $OPENSIM_SOURCE,
         "--preset", "opensim-core-windows",
         "-DCMAKE_INSTALL_PREFIX=$OPENSIM_INSTALL",
+        "-DOPENSIM_INSTALL_DIR=$OPENSIM_INSTALL",
         "-DOPENSIM_DEPENDENCIES_DIR=$DEPS_INSTALL",
         "-DCMAKE_PREFIX_PATH=$DEPS_INSTALL",
         "-DSWIG_DIR=$SWIG_DIR",
