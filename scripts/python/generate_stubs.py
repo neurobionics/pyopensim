@@ -15,16 +15,16 @@ def ensure_mypy_available() -> bool:
     """Check if mypy is available, install if needed."""
     try:
         import mypy.stubgen  # noqa: F401
-        print("✓ mypy is available")
+        print("[OK] mypy is available")
         return True
     except ImportError:
         print("Installing mypy for stub generation...")
         try:
             subprocess.run([sys.executable, "-m", "pip", "install", "mypy"], check=True)
-            print("✓ mypy installed successfully")
+            print("[OK] mypy installed successfully")
             return True
         except subprocess.CalledProcessError as e:
-            print(f"✗ Failed to install mypy: {e}")
+            print(f"[ERROR] Failed to install mypy: {e}")
             return False
 
 
@@ -117,12 +117,12 @@ def post_process_stub_file(file_path: Path) -> None:
         if content != original_content:
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(content)
-            print(f"    ✓ Fixed issues in {file_path.name}")
+            print(f"    [OK] Fixed issues in {file_path.name}")
         else:
-            print(f"    ✓ No issues found in {file_path.name}")
-            
+            print(f"    [OK] No issues found in {file_path.name}")
+
     except Exception as e:
-        print(f"    ✗ Error processing {file_path.name}: {e}")
+        print(f"    [ERROR] Error processing {file_path.name}: {e}")
 
 
 def generate_stubs_with_stubgen(package_path: Path, output_dir: Path) -> bool:
@@ -152,17 +152,17 @@ def generate_stubs_with_stubgen(package_path: Path, output_dir: Path) -> bool:
             ], capture_output=True, text=True, check=False)
             
             if result.returncode == 0:
-                print(f"  ✓ Generated stubs for {module_name}")
+                print(f"  [OK] Generated stubs for {module_name}")
                 success_count += 1
             else:
-                print(f"  ⚠ Warning: stubgen had issues with {module_name}")
+                print(f"  [WARN] Warning: stubgen had issues with {module_name}")
                 if result.stderr:
                     print(f"    stderr: {result.stderr}")
                 # Still count as success since stubs are usually generated despite warnings
                 success_count += 1
-                
+
         except Exception as e:
-            print(f"  ✗ Error generating stubs for {module_name}: {e}")
+            print(f"  [ERROR] Error generating stubs for {module_name}: {e}")
     
     return success_count > 0
 
@@ -179,7 +179,7 @@ def post_process_all_stubs(output_dir: Path) -> None:
             if stub_file.name != "__init__.pyi":  # Skip our custom __init__.pyi
                 post_process_stub_file(stub_file)
     else:
-        print(f"  ⚠ Warning: Expected stub directory not found: {pyopensim_dir}")
+        print(f"  [WARN] Warning: Expected stub directory not found: {pyopensim_dir}")
 
 
 def create_init_stub(output_dir: Path) -> None:
@@ -243,8 +243,8 @@ __all__ = [
     
     with open(init_file, 'w') as f:
         f.write(init_stub_content)
-    
-    print("✓ Generated main __init__.pyi")
+
+    print("[OK] Generated main __init__.pyi")
 
 
 def main():
@@ -278,14 +278,14 @@ def main():
         print("\n" + "-"*40)
         # Create main __init__.pyi file
         create_init_stub(output_dir)
-        
+
         print("\n" + "="*60)
-        print(f"✓ Stub generation completed successfully!")
+        print(f"[OK] Stub generation completed successfully!")
         print(f"  Files written to: {output_dir}")
         print(f"  Post-processing applied to fix SWIG-related issues")
         print("="*60)
     else:
-        print("✗ Stub generation failed")
+        print("[ERROR] Stub generation failed")
         sys.exit(1)
 
 
