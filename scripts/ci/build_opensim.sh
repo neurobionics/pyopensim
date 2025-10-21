@@ -73,10 +73,11 @@ case "$PLATFORM" in
         ;;
     macos)
         # For CI, always build universal2 on macOS
+        # Using deployment target 11 to match OpenSim's official CI
         DEPS_PRESET="opensim-dependencies-macos-universal2"
         CORE_PRESET="opensim-core-macos-universal2"
         export CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
-        export MACOSX_DEPLOYMENT_TARGET="14.0"
+        export MACOSX_DEPLOYMENT_TARGET="11.0"
         ;;
     *)
         echo "Error: Unsupported platform: $PLATFORM"
@@ -128,16 +129,37 @@ if [ "$FORCE_REBUILD" = true ] || [ ! -f "$OPENSIM_INSTALL/.build_complete" ]; t
         linux)
             # In CI, we're typically root in a container
             if command -v dnf >/dev/null 2>&1; then
-                dnf install -y gcc gcc-c++ make cmake autoconf automake libtool pkgconfig \
+                dnf install -y gcc gcc-c++ make autoconf automake libtool pkgconfig \
                     openblas-devel lapack-devel freeglut-devel libXi-devel libXmu-devel \
                     python3-devel git openssl-devel pcre-devel pcre2-devel gcc-gfortran \
                     patchelf java-1.8.0-openjdk-devel wget bison byacc || true
             elif command -v apt-get >/dev/null 2>&1; then
-                apt-get update && apt-get install -y build-essential cmake autotools-dev \
+                apt-get update && apt-get install -y build-essential autotools-dev \
                     autoconf pkg-config automake libopenblas-dev liblapack-dev freeglut3-dev \
                     libxi-dev libxmu-dev python3-dev git libssl-dev libpcre3-dev libpcre2-dev \
                     libtool gfortran patchelf openjdk-8-jdk wget bison byacc || true
             fi
+
+            # Install newer CMake (manylinux containers often have old CMake)
+            # Using 3.22.1 to match OpenSim's ubuntu-22.04 CI environment
+            echo "Installing CMake 3.22.1..."
+            CMAKE_VERSION="3.22.1"
+            CMAKE_INSTALL_DIR="$CACHE_DIR/cmake"
+
+            if [ ! -f "$CMAKE_INSTALL_DIR/bin/cmake" ]; then
+                CMAKE_ARCH="x86_64"
+                if [ "$(uname -m)" = "aarch64" ]; then
+                    CMAKE_ARCH="aarch64"
+                fi
+
+                wget -q "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-${CMAKE_ARCH}.tar.gz" -O /tmp/cmake.tar.gz
+                mkdir -p "$CMAKE_INSTALL_DIR"
+                tar -xzf /tmp/cmake.tar.gz -C "$CMAKE_INSTALL_DIR" --strip-components=1
+                rm /tmp/cmake.tar.gz
+            fi
+
+            export PATH="$CMAKE_INSTALL_DIR/bin:$PATH"
+            echo "CMake version: $(cmake --version | head -1)"
             ;;
         macos)
             # On macOS runners, brew is pre-installed
@@ -185,9 +207,17 @@ fi
 # Set environment variables for subsequent build steps
 echo ""
 echo "Setting up build environment..."
+
+# Add CMake to PATH if on Linux
+if [ "$PLATFORM" = "linux" ]; then
+    CMAKE_INSTALL_DIR="$CACHE_DIR/cmake"
+    export PATH="$CMAKE_INSTALL_DIR/bin:$PATH"
+fi
+
 export PATH="$SWIG_INSTALL/bin:$PATH"
 export OPENSIM_INSTALL_DIR="$OPENSIM_INSTALL"
 
+echo "  CMake version: $(cmake --version | head -1)"
 echo "  PATH includes SWIG: $(which swig 2>/dev/null || echo 'SWIG not in PATH')"
 echo "  OPENSIM_INSTALL_DIR: $OPENSIM_INSTALL_DIR"
 

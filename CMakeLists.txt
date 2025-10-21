@@ -425,6 +425,15 @@ macro(OpenSimAddPythonModule)
             endif()
         endif()
 
+        # Find spdlog package (required for LogSink SWIG director wrappers)
+        # spdlog is used as header-only by OpenSim, but SWIG directors need the symbols
+        find_package(spdlog QUIET HINTS "${OPENSIM_DEPENDENCIES_DIR}/spdlog" "${OPENSIM_INSTALL_DIR}/sdk/spdlog")
+        if(spdlog_FOUND)
+            message(STATUS "Found spdlog package: ${spdlog_DIR}")
+        else()
+            message(STATUS "spdlog package not found, will rely on transitive dependencies")
+        endif()
+
         # Platform-specific library paths
         # OpenSim core libraries (always in sdk/lib)
         set(OSIM_LIBS
@@ -453,7 +462,7 @@ macro(OpenSimAddPythonModule)
                     set(LIB_FOUND TRUE)
                 endif()
             endif()
-            
+
             if(NOT LIB_FOUND)
                 message(STATUS "Warning: Could not find ${LIB_NAME} library")
             endif()
@@ -466,21 +475,14 @@ macro(OpenSimAddPythonModule)
             "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimLepton${LIB_EXT}"
             "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}osimdocopt${LIB_EXT}"
             "${OPENSIM_INSTALL_DIR}/sdk/lib/${LIB_PREFIX}ezc3d${LIB_EXT}")
-            
-        # Also check dependencies directories for ezc3d and spdlog (they may be in lib64)
+
+        # Also check dependencies directories for ezc3d (may be in lib64)
         file(GLOB EZCD_DEPS_LIBS "${OPENSIM_DEPENDENCIES_DIR}/ezc3d/lib*/${LIB_PREFIX}ezc3d${LIB_EXT}*")
-        file(GLOB SPDLOG_DEPS_LIBS "${OPENSIM_DEPENDENCIES_DIR}/spdlog/lib*/${LIB_PREFIX}spdlog${LIB_EXT}*")
-        
+
         if(EZCD_DEPS_LIBS)
             list(GET EZCD_DEPS_LIBS 0 FIRST_EZCD_LIB)
             list(APPEND OPTIONAL_LIBS "${FIRST_EZCD_LIB}")
             message(STATUS "Found ezc3d dependency library: ${FIRST_EZCD_LIB}")
-        endif()
-        
-        if(SPDLOG_DEPS_LIBS)
-            list(GET SPDLOG_DEPS_LIBS 0 FIRST_SPDLOG_LIB)
-            list(APPEND OPTIONAL_LIBS "${FIRST_SPDLOG_LIB}")
-            message(STATUS "Found spdlog dependency library: ${FIRST_SPDLOG_LIB}")
         endif()
 
 
@@ -504,7 +506,13 @@ macro(OpenSimAddPythonModule)
         endif()
 
         message(STATUS "Linking ${_libname} against: ${EXISTING_LIBS}")
+        # Link against OpenSim libraries
         target_link_libraries(${_libname} ${EXISTING_LIBS})
+        # Link against spdlog if found (required for SWIG director wrappers of LogSink on Windows)
+        if(spdlog_FOUND)
+            target_link_libraries(${_libname} spdlog::spdlog)
+            message(STATUS "Also linking ${_libname} against spdlog::spdlog")
+        endif()
         
         # Include directories
         target_include_directories(${_libname} PRIVATE 

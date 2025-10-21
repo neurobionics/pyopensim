@@ -32,7 +32,7 @@
       "description": "macOS dependencies build configuration",
       "inherits": "opensim-dependencies-base",
       "cacheVariables": {
-        "CMAKE_OSX_DEPLOYMENT_TARGET": "14.0"
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "11.0"
       }
     },
     {
@@ -107,7 +107,7 @@
       "inherits": "opensim-core-base",
       "cacheVariables": {
         "CMAKE_CXX_FLAGS": "-Wno-array-bounds",
-        "CMAKE_OSX_DEPLOYMENT_TARGET": "14.0"
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "11.0"
       }
     },
     {

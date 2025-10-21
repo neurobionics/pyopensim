@@ -79,7 +79,7 @@ echo "=== Installing OpenBLAS for tests ===" &&
 dnf install -y openblas || yum install -y openblas || (apt-get update && apt-get install -y libopenblas0)
 """
 
-environment = { PATH = "/host$(pwd)/opensim-cache/linux-$(uname -m)/swig/bin:$PATH", OPENSIM_INSTALL_DIR = "/host$(pwd)/opensim-cache/linux-$(uname -m)/opensim-install" }
+environment = { PATH = "/host$(pwd)/opensim-cache/linux-$(uname -m)/cmake/bin:/host$(pwd)/opensim-cache/linux-$(uname -m)/swig/bin:$PATH", OPENSIM_INSTALL_DIR = "/host$(pwd)/opensim-cache/linux-$(uname -m)/opensim-install" }
 
 repair-wheel-command = """
 echo "=== Repairing Linux wheel ===" &&
@@ -99,7 +99,7 @@ CACHE_DIR="$(pwd)/opensim-cache/macos-universal2"
 scripts/ci/build_opensim.sh --platform macos --cache-dir "$CACHE_DIR"
 """
 
-environment = { MACOSX_DEPLOYMENT_TARGET = "14.0", CMAKE_OSX_ARCHITECTURES = "x86_64;arm64", OPENSIM_INSTALL_DIR = "$(pwd)/opensim-cache/macos-universal2/opensim-install" }
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0", CMAKE_OSX_ARCHITECTURES = "x86_64;arm64", OPENSIM_INSTALL_DIR = "$(pwd)/opensim-cache/macos-universal2/opensim-install" }
 
 repair-wheel-command = """
 echo "=== Repairing macOS wheel ===" &&
