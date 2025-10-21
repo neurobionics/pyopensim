@@ -68,9 +68,12 @@ else()
 endif()
 find_package(SWIG 4.1.1 REQUIRED)
 
-# Find Python3 with all required components (like opensim-core does)
-# Note: NumPy component may not be available in older CMake, so we find it manually below
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+# Find Python3 with all required components
+# Use Development.Module (not Development) for manylinux compatibility
+# Development.Module is for building Python extensions (what we need)
+# Development.Embed is for embedding Python interpreter (not available in manylinux)
+# Note: Development.Module requires CMake 3.18+, but we're using 3.22+ so this is safe
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 
 # Find NumPy headers manually (as CMake NumPy component may not be available)
 execute_process(
