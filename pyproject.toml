@@ -119,4 +119,6 @@ before-build = [
 environment = { OPENSIM_INSTALL_DIR = "{project}/opensim-cache/windows-AMD64/opensim-install" }
 
 # Use delvewheel to repair the wheel and bundle DLL dependencies
-repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
+# Add OpenSim and dependency library paths so delvewheel can find all DLLs
+# Note: DLLs are built in opensim-cache but CMake uses build/opensim-workspace, so we check both
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --add-path {project}/opensim-cache/windows-AMD64/opensim-install/bin;{project}/opensim-cache/windows-AMD64/opensim-install/sdk/lib;{project}/opensim-cache/windows-AMD64/opensim-install/sdk/Simbody/bin;{project}/opensim-cache/windows-AMD64/dependencies-install/simbody/bin;{project}/opensim-cache/windows-AMD64/dependencies-install/ezc3d/bin"
