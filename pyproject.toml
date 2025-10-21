@@ -111,10 +111,10 @@ DYLD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib" de
 archs = ["AMD64"]
 
 # Install delvewheel for Windows wheel repair, then build OpenSim
-before-build = """
-pip install delvewheel &&
-powershell -ExecutionPolicy Bypass -File scripts/ci/build_opensim.ps1 -CacheDir "{project}/opensim-cache/windows-AMD64" -Jobs 4
-"""
+before-build = [
+    "pip install delvewheel",
+    "powershell -ExecutionPolicy Bypass -File scripts/ci/build_opensim.ps1 -CacheDir \"{project}/opensim-cache/windows-AMD64\" -Jobs 4"
+]
 
 environment = { OPENSIM_INSTALL_DIR = "{project}/opensim-cache/windows-AMD64/opensim-install" }
 
