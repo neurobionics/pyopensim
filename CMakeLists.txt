@@ -117,8 +117,14 @@ if(PYOPENSIM_BUILD_WITH_OPENSIM)
     endif()
     
     if(NOT OPENSIM_FOUND)
-        # Set OpenSim paths - check environment variable first (from cibuildwheel), then workspace
-        if(DEFINED ENV{OPENSIM_INSTALL_DIR} AND EXISTS "$ENV{OPENSIM_INSTALL_DIR}")
+        # Set OpenSim paths - check CMake variable first (from CMAKE_ARGS), then environment variable, then workspace
+        if(DEFINED OPENSIM_INSTALL_DIR AND EXISTS "${OPENSIM_INSTALL_DIR}")
+            # OPENSIM_INSTALL_DIR passed via -D flag (e.g., from CMAKE_ARGS in cibuildwheel)
+            get_filename_component(OPENSIM_CACHE_DIR "${OPENSIM_INSTALL_DIR}" DIRECTORY)
+            set(OPENSIM_DEPENDENCIES_DIR "${OPENSIM_CACHE_DIR}/dependencies-install")
+            message(STATUS "Using OpenSim from CMake variable: ${OPENSIM_INSTALL_DIR}")
+        elseif(DEFINED ENV{OPENSIM_INSTALL_DIR} AND EXISTS "$ENV{OPENSIM_INSTALL_DIR}")
+            # OPENSIM_INSTALL_DIR from environment variable (legacy/fallback)
             set(OPENSIM_INSTALL_DIR "$ENV{OPENSIM_INSTALL_DIR}")
             get_filename_component(OPENSIM_CACHE_DIR "${OPENSIM_INSTALL_DIR}" DIRECTORY)
             set(OPENSIM_DEPENDENCIES_DIR "${OPENSIM_CACHE_DIR}/dependencies-install")
