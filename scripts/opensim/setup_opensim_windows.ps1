@@ -57,22 +57,29 @@ if (-not $chocoCmd) {
     exit 1
 }
 
-# Check if SWIG is already installed
-$swigCmd = Get-Command swig -ErrorAction SilentlyContinue
-if ($swigCmd) {
-    Write-Host "SWIG already installed at: $($swigCmd.Source)" -ForegroundColor Green
-    & swig -version
-} else {
-    Write-Host "Installing SWIG 4.1.1 via Chocolatey..."
-    choco install swig --version 4.1.1 --yes --limit-output --allow-downgrade
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to install SWIG"
-    }
-    # Refresh environment
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+# Always install SWIG 4.1.1, forcing downgrade/reinstall if needed
+# This matches the CI approach and ensures we get the exact version
+# The --force flag is critical: without it, chocolatey won't downgrade from pre-installed versions
+Write-Host "Installing SWIG 4.1.1 via Chocolatey..."
+choco install swig --version 4.1.1 --yes --limit-output --allow-downgrade --force
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to install SWIG 4.1.1"
 }
 
-$SWIG_EXE = (Get-Command swig).Source
+# Refresh environment to get swig in PATH
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+# Verify installation
+Write-Host "`nVerifying SWIG installation:" -ForegroundColor Cyan
+$swigCmd = Get-Command swig -ErrorAction SilentlyContinue
+if (-not $swigCmd) {
+    throw "SWIG not found in PATH after installation"
+}
+
+Write-Host "SWIG installed at: $($swigCmd.Source)" -ForegroundColor Green
+& swig -version
+
+$SWIG_EXE = $swigCmd.Source
 $SWIG_DIR = Split-Path -Parent $SWIG_EXE
 $SWIG_DIR = Join-Path (Split-Path -Parent $SWIG_DIR) "share\swig"
 
@@ -127,27 +134,16 @@ if ((Test-Path $DEPS_COMPLETE) -and -not $Force) {
     # Configure
     Write-Host "Configuring dependencies..."
 
-    # Extract compiler flags from CMAKE_FLAGS and build the rest as CMake arguments
-    # We'll use 'cmake -E env' to set CXXFLAGS and CFLAGS like OpenSim's official CI
-    $otherFlags = @()
-    foreach ($flag in $CMAKE_FLAGS) {
-        # Skip C/CXX flags - we'll set these via environment
-        if (-not ($flag -match "CMAKE_C(XX)?_FLAGS")) {
-            $otherFlags += $flag
-        }
-    }
-
-    # Build cmake arguments (matching OpenSim's official CI approach)
+    # Build cmake arguments using preset (which includes all compiler flags)
     $configArgs = @(
         $DEPS_SOURCE,
-        '-G"Visual Studio 17 2022"',
-        "-A", "x64",
+        "--preset", "opensim-dependencies-windows",
         "-DCMAKE_INSTALL_PREFIX=$DEPS_INSTALL_DIR"
-    ) + $otherFlags
+    )
 
     Write-Host "Running CMake configuration..."
-    # Use cmake -E env to set compiler flags like OpenSim's official CI
-    & cmake -E env CXXFLAGS="/MD /W0" CFLAGS="/MD /W0" cmake @configArgs
+    # Use preset directly - it contains all necessary flags including /utf-8
+    & cmake @configArgs
     if ($LASTEXITCODE -ne 0) {
         throw "CMake configuration failed"
     }
@@ -202,6 +198,23 @@ if ((Test-Path $OPENSIM_COMPLETE) -and -not $Force) {
     Write-Host "Copying CMakePresets.json to OpenSim source directory..."
     Copy-Item $PRESETS_FILE $OPENSIM_SOURCE -Force
 
+    # Apply patch to skip Examples directory (avoids find_package(OpenSim) issue)
+    $PATCH_FILE = Join-Path $OPENSIM_ROOT "patches\skip-examples.patch"
+    $OPENSIM_CMAKE = Join-Path $OPENSIM_SOURCE "OpenSim\CMakeLists.txt"
+    if (Test-Path $PATCH_FILE) {
+        Write-Host "Applying patch to skip Examples directory..."
+        # Check if already patched
+        $content = Get-Content $OPENSIM_CMAKE -Raw
+        if ($content -notmatch 'if\(BUILD_API_EXAMPLES\)[\s\S]*add_subdirectory\(Examples\)') {
+            # Simple text replacement instead of git apply (more reliable on Windows)
+            $content = $content -replace 'add_subdirectory\(Examples\)', "if(BUILD_API_EXAMPLES)`n    add_subdirectory(Examples)`nendif()"
+            Set-Content -Path $OPENSIM_CMAKE -Value $content
+            Write-Host "Patch applied successfully" -ForegroundColor Green
+        } else {
+            Write-Host "Patch already applied, skipping" -ForegroundColor Yellow
+        }
+    }
+
     # Create build directory
     New-Item -ItemType Directory -Force -Path $OPENSIM_BUILD_DIR | Out-Null
     Set-Location $OPENSIM_BUILD_DIR
@@ -209,7 +222,7 @@ if ((Test-Path $OPENSIM_COMPLETE) -and -not $Force) {
     # Configure
     Write-Host "Configuring OpenSim..."
 
-    # Build cmake arguments (matching OpenSim's official CI approach)
+    # Build cmake arguments using preset (which includes all compiler flags)
     $configArgs = @(
         $OPENSIM_SOURCE,
         "--preset", "opensim-core-windows",
@@ -221,8 +234,8 @@ if ((Test-Path $OPENSIM_COMPLETE) -and -not $Force) {
     )
 
     Write-Host "Running CMake configuration..."
-    # Use cmake -E env to set compiler flags like OpenSim's official CI
-    & cmake -E env CXXFLAGS="/MD /W0" CFLAGS="/MD /W0" cmake @configArgs
+    # Use preset directly - it contains all necessary flags including /utf-8 and /bigobj
+    & cmake @configArgs
     if ($LASTEXITCODE -ne 0) {
         throw "CMake configuration failed"
     }

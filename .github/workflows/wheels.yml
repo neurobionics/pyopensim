@@ -172,11 +172,12 @@ jobs:
           # Only workflow-specific environment variables here
           OPENSIM_SHA: ${{ steps.opensim-sha.outputs.opensim_sha }}
           # Set OPENSIM_INSTALL_DIR for Windows to ensure CMake finds cached build
-          # CRITICAL: Must use forward slashes (/) for CMake compatibility on Windows
-          # CMake's EXISTS() command works with both forward/backslashes, but forward slashes are safer
-          # We set both the env var (for scripts) and CMAKE_ARGS (for CMake configure step)
+          # We only use environment variable (not CMAKE_ARGS) because:
+          # 1. github.workspace contains backslashes on Windows (D:\a\pyopensim\pyopensim)
+          # 2. Backslashes in YAML format() get interpreted as escape sequences (\a becomes bell char)
+          # 3. CMake detects and normalizes env var paths correctly (mixed slashes work fine)
+          # 4. Currently working via environment variable fallback (CMakeLists.txt:126-131)
           OPENSIM_INSTALL_DIR: ${{ runner.os == 'Windows' && format('{0}/opensim-cache/windows-AMD64/opensim-install', github.workspace) || '' }}
-          CMAKE_ARGS: ${{ runner.os == 'Windows' && format('-DOPENSIM_INSTALL_DIR={0}/opensim-cache/windows-AMD64/opensim-install', github.workspace) || '' }}
 
       - name: Verify clean directory
         run: |

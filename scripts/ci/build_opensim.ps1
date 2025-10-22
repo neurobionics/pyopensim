@@ -117,31 +117,22 @@ if ($Force -or -not (Test-Path $BUILD_COMPLETE)) {
     # Convert space-separated flags to array and filter out C/CXX flags
     $CMAKE_FLAGS = $CMAKE_FLAGS_STR -split ' '
 
-    # Extract non-compiler flags (compiler flags will be set via cmake -E env)
-    $otherFlags = @()
-    foreach ($flag in $CMAKE_FLAGS) {
-        if (-not ($flag -match "CMAKE_C(XX)?_FLAGS")) {
-            $otherFlags += $flag
-        }
-    }
-
     Write-Host "CMake flags: $CMAKE_FLAGS_STR"
 
     # Create build directory
     New-Item -ItemType Directory -Force -Path $DEPS_BUILD_DIR | Out-Null
     Set-Location $DEPS_BUILD_DIR
 
-    # Configure dependencies (matching OpenSim's official CI approach)
+    # Configure dependencies using preset (which includes all compiler flags)
     Write-Host "Configuring dependencies..."
     $configArgs = @(
         $DEPS_SOURCE,
-        '-G"Visual Studio 17 2022"',
-        "-A", "x64",
+        "--preset", "opensim-dependencies-windows",
         "-DCMAKE_INSTALL_PREFIX=$DEPS_INSTALL"
-    ) + $otherFlags
+    )
 
-    # Use cmake -E env to set compiler flags like OpenSim's official CI
-    & cmake -E env CXXFLAGS="/MD /W0" CFLAGS="/MD /W0" cmake @configArgs
+    # Use preset directly - it contains all necessary flags including /utf-8
+    & cmake @configArgs
     if ($LASTEXITCODE -ne 0) {
         throw "CMake configuration failed for dependencies"
     }
@@ -188,7 +179,7 @@ if ($Force -or -not (Test-Path $BUILD_COMPLETE)) {
     New-Item -ItemType Directory -Force -Path $OPENSIM_BUILD_DIR | Out-Null
     Set-Location $OPENSIM_BUILD_DIR
 
-    # Configure OpenSim (matching OpenSim's official CI approach)
+    # Configure OpenSim using preset (which includes all compiler flags)
     Write-Host "Configuring OpenSim..."
     $configArgs = @(
         $OPENSIM_SOURCE,
@@ -200,8 +191,8 @@ if ($Force -or -not (Test-Path $BUILD_COMPLETE)) {
         "-DSWIG_EXECUTABLE=$SWIG_EXE"
     )
 
-    # Use cmake -E env to set compiler flags like OpenSim's official CI
-    & cmake -E env CXXFLAGS="/MD /W0" CFLAGS="/MD /W0" cmake @configArgs
+    # Use preset directly - it contains all necessary flags including /utf-8 and /bigobj
+    & cmake @configArgs
     if ($LASTEXITCODE -ne 0) {
         throw "CMake configuration failed for OpenSim"
     }

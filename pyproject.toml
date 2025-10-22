@@ -125,15 +125,18 @@ archs = ["AMD64"]
 # Install delvewheel for Windows wheel repair and consolidate DLLs
 before-build = [
     "pip install delvewheel",
+    # Always install SWIG 4.1.1 (required for Python bindings build, even with cached OpenSim)
+    "powershell -Command \"Write-Host '=== Installing SWIG 4.1.1 ==='; choco install swig --version 4.1.1 --yes --limit-output --allow-downgrade --force; if ($LASTEXITCODE -ne 0) { throw 'Failed to install SWIG 4.1.1' }; $swigCmd = Get-Command swig -ErrorAction SilentlyContinue; if (-not $swigCmd) { throw 'SWIG not found in PATH after installation' }; Write-Host \\\"SWIG installed at: $($swigCmd.Source)\\\"; & swig -version\"",
     # Check if OpenSim is built, build if missing
     "powershell -Command \"if (-not (Test-Path '{project}/opensim-cache/windows-AMD64/opensim-install')) { Write-Host '=== OpenSim not found in cache, building now ==='; powershell -ExecutionPolicy Bypass -File scripts/ci/build_opensim.ps1 -CacheDir '{project}/opensim-cache/windows-AMD64' -Jobs 4 } else { Write-Host '=== OpenSim already built in workflow, using cached version ===' }\"",
     # Consolidate all DLLs into single directory for delvewheel (similar to pyvalhalla approach)
     "powershell -Command \"Write-Host '=== Consolidating DLLs to lib/windows ==='; New-Item -ItemType Directory -Force -Path 'lib/windows' | Out-Null; Get-ChildItem -Path '{project}/opensim-cache/windows-AMD64' -Filter '*.dll' -Recurse -ErrorAction SilentlyContinue | Copy-Item -Destination 'lib/windows' -Force; $count = (Get-ChildItem 'lib/windows/*.dll' -ErrorAction SilentlyContinue | Measure-Object).Count; Write-Host \\\"Copied $count DLLs to lib/windows\\\"\""
 ]
 
-# Don't set OPENSIM_INSTALL_DIR here - it's set by the workflow with proper Windows path format
-# The workflow passes it via both environment variable and CMAKE_ARGS (workflow line 174-177)
-# Setting it here would override with Git Bash format paths that CMake can't parse on Windows
+# Don't set OPENSIM_INSTALL_DIR here - it's set by the workflow as an environment variable
+# The workflow sets it at line 180 with a path like: D:\a\pyopensim\pyopensim/opensim-cache/...
+# CMake detects it via the environment variable check in CMakeLists.txt:126-131
+# Setting it here with $(pwd) would create Git Bash paths (/d/a/...) that cause issues
 environment = {}
 
 # Use delvewheel to repair the wheel and bundle DLL dependencies
