@@ -131,9 +131,10 @@ before-build = [
     "powershell -Command \"Write-Host '=== Consolidating DLLs to lib/windows ==='; New-Item -ItemType Directory -Force -Path 'lib/windows' | Out-Null; Get-ChildItem -Path '{project}/opensim-cache/windows-AMD64' -Filter '*.dll' -Recurse -ErrorAction SilentlyContinue | Copy-Item -Destination 'lib/windows' -Force; $count = (Get-ChildItem 'lib/windows/*.dll' -ErrorAction SilentlyContinue | Measure-Object).Count; Write-Host \\\"Copied $count DLLs to lib/windows\\\"\""
 ]
 
-# Set environment variable using $(pwd) which works on Windows
-# Pass it both as env var and as CMAKE_ARGS to ensure it reaches CMake through isolated build
-environment = { OPENSIM_INSTALL_DIR = "$(pwd)/opensim-cache/windows-AMD64/opensim-install", CMAKE_ARGS = "-DOPENSIM_INSTALL_DIR=$(pwd)/opensim-cache/windows-AMD64/opensim-install" }
+# Don't set OPENSIM_INSTALL_DIR here - it's set by the workflow with proper Windows path format
+# The workflow passes it via both environment variable and CMAKE_ARGS (workflow line 174-177)
+# Setting it here would override with Git Bash format paths that CMake can't parse on Windows
+environment = {}
 
 # Use delvewheel to repair the wheel and bundle DLL dependencies
 # All DLLs consolidated into lib/windows by before-build (clean approach like pyvalhalla)
