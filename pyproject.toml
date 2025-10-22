@@ -122,5 +122,32 @@ environment = { OPENSIM_INSTALL_DIR = "{project}/opensim-cache/windows-AMD64/ope
 # Use delvewheel to repair the wheel and bundle DLL dependencies
 # Use environment variable for path since {project} placeholder doesn't expand in --add-path argument
 repair-wheel-command = """
-powershell -Command "& { $CACHE = $env:OPENSIM_CACHE_DIR; delvewheel repair -w {dest_dir} {wheel} --add-path \"$CACHE/opensim-install/bin`;$CACHE/opensim-install/sdk/Simbody/bin`;$CACHE/dependencies-install/simbody/bin`;$CACHE/dependencies-install/ezc3d/bin\" }"
+powershell -Command "& {
+    $ErrorActionPreference = 'Stop';
+    $CACHE = $env:OPENSIM_CACHE_DIR;
+    $dest = '{dest_dir}';
+    $wheel = '{wheel}';
+    $searchPaths = @(
+        \"$CACHE/opensim-install/bin\",
+        \"$CACHE/opensim-install/sdk/bin\",
+        \"$CACHE/opensim-install/sdk/Simbody/bin\",
+        \"$CACHE/dependencies-install/bin\",
+        \"$CACHE/dependencies-install/simbody/bin\",
+        \"$CACHE/dependencies-install/ezc3d/bin\"
+    );
+    $args = @('repair', '-w', $dest, $wheel);
+    foreach ($path in $searchPaths) {
+        if (Test-Path $path) {
+            $args += '--add-path';
+            $args += $path;
+        } else {
+            Write-Host \"[delvewheel] Skipping missing path: $path\";
+        }
+    }
+    Write-Host ('[delvewheel] Executing: delvewheel ' + ($args -join ' '));
+    & delvewheel @args
+    if ($LASTEXITCODE -ne 0) {
+        throw 'delvewheel repair failed';
+    }
+}"
 """
