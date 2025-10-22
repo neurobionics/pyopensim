@@ -133,13 +133,9 @@ jobs:
         shell: bash
 
       # Build OpenSim separately to cache it before wheel build
-      - name: Build OpenSim (Linux)
-        if: runner.os == 'Linux' && steps.opensim-status.outputs.needs_build == 'true'
-        run: |
-          chmod +x scripts/ci/build_opensim.sh
-          CACHE_DIR="$(pwd)/opensim-cache/linux-$(uname -m)"
-          scripts/ci/build_opensim.sh --platform linux --cache-dir "$CACHE_DIR"
-        shell: bash
+      # NOTE: Linux builds happen inside cibuildwheel's manylinux container
+      # to ensure BLAS/LAPACK compatibility. See pyproject.toml [tool.cibuildwheel.linux] before-build.
+      # Only macOS and Windows build outside the container.
 
       - name: Build OpenSim (macOS)
         if: runner.os == 'macOS' && steps.opensim-status.outputs.needs_build == 'true'
@@ -157,8 +153,9 @@ jobs:
 
       # Save the cache immediately after building OpenSim, even if wheel build fails later
       # Only save if we built something new OR if there was a restore-keys match (not exact match)
-      - name: Save OpenSim cache
-        if: steps.opensim-cache.outputs.cache-hit != 'true' && steps.opensim-status.outputs.needs_build == 'true'
+      # Note: Linux builds happen inside cibuildwheel, so we save cache after cibuildwheel for Linux
+      - name: Save OpenSim cache (macOS/Windows)
+        if: runner.os != 'Linux' && steps.opensim-cache.outputs.cache-hit != 'true' && steps.opensim-status.outputs.needs_build == 'true'
         uses: actions/cache/save@v4
         with:
           path: |
@@ -178,6 +175,15 @@ jobs:
           # 3. CMake detects and normalizes env var paths correctly (mixed slashes work fine)
           # 4. Currently working via environment variable fallback (CMakeLists.txt:126-131)
           OPENSIM_INSTALL_DIR: ${{ runner.os == 'Windows' && format('{0}/opensim-cache/windows-AMD64/opensim-install', github.workspace) || '' }}
+
+      # Save cache for Linux after cibuildwheel (since build happens inside container)
+      - name: Save OpenSim cache (Linux)
+        if: runner.os == 'Linux' && steps.opensim-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            opensim-cache
+          key: opensim-${{ matrix.os }}-${{ runner.arch }}-${{ steps.opensim-sha.outputs.opensim_sha }}-v3${{ inputs.force_rebuild_cache && '-rebuild' || '' }}
 
       - name: Verify clean directory
         run: |
