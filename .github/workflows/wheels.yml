@@ -100,8 +100,9 @@ jobs:
         shell: bash
 
       # Cache OpenSim build per container environment and architecture
-      - name: Cache OpenSim build
-        uses: actions/cache@v4
+      - name: Restore OpenSim cache
+        id: opensim-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             opensim-cache
@@ -109,6 +110,60 @@ jobs:
           restore-keys: |
             opensim-${{ matrix.os }}-${{ runner.arch }}-${{ steps.opensim-sha.outputs.opensim_sha }}-
             opensim-${{ matrix.os }}-${{ runner.arch }}-
+
+      # Check if OpenSim was actually restored (exact or partial cache match)
+      - name: Check OpenSim build status
+        id: opensim-status
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            OPENSIM_DIR="opensim-cache/linux-$(uname -m)/opensim-install"
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            OPENSIM_DIR="opensim-cache/macos-universal2/opensim-install"
+          elif [ "${{ runner.os }}" = "Windows" ]; then
+            OPENSIM_DIR="opensim-cache/windows-AMD64/opensim-install"
+          fi
+
+          if [ -d "$OPENSIM_DIR" ]; then
+            echo "needs_build=false" >> $GITHUB_OUTPUT
+            echo "OpenSim found in cache directory: $OPENSIM_DIR"
+          else
+            echo "needs_build=true" >> $GITHUB_OUTPUT
+            echo "OpenSim not found, will build from source"
+          fi
+        shell: bash
+
+      # Build OpenSim separately to cache it before wheel build
+      - name: Build OpenSim (Linux)
+        if: runner.os == 'Linux' && steps.opensim-status.outputs.needs_build == 'true'
+        run: |
+          chmod +x scripts/ci/build_opensim.sh
+          CACHE_DIR="$(pwd)/opensim-cache/linux-$(uname -m)"
+          scripts/ci/build_opensim.sh --platform linux --cache-dir "$CACHE_DIR"
+        shell: bash
+
+      - name: Build OpenSim (macOS)
+        if: runner.os == 'macOS' && steps.opensim-status.outputs.needs_build == 'true'
+        run: |
+          chmod +x scripts/ci/build_opensim.sh
+          CACHE_DIR="$(pwd)/opensim-cache/macos-universal2"
+          scripts/ci/build_opensim.sh --platform macos --cache-dir "$CACHE_DIR"
+        shell: bash
+
+      - name: Build OpenSim (Windows)
+        if: runner.os == 'Windows' && steps.opensim-status.outputs.needs_build == 'true'
+        run: |
+          powershell -ExecutionPolicy Bypass -File scripts/ci/build_opensim.ps1 -CacheDir "${{ github.workspace }}/opensim-cache/windows-AMD64" -Jobs 4
+        shell: bash
+
+      # Save the cache immediately after building OpenSim, even if wheel build fails later
+      # Only save if we built something new OR if there was a restore-keys match (not exact match)
+      - name: Save OpenSim cache
+        if: steps.opensim-cache.outputs.cache-hit != 'true' && steps.opensim-status.outputs.needs_build == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            opensim-cache
+          key: opensim-${{ matrix.os }}-${{ runner.arch }}-${{ steps.opensim-sha.outputs.opensim_sha }}-v3${{ inputs.force_rebuild_cache && '-rebuild' || '' }}
 
       # All cibuildwheel configuration is in pyproject.toml under [tool.cibuildwheel]
       # This keeps the workflow clean and maintainable

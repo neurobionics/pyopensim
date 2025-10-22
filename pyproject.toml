@@ -69,9 +69,15 @@ manylinux-ppc64le-image = "manylinux_2_28"
 manylinux-s390x-image = "manylinux_2_28"
 
 before-build = """
-chmod +x scripts/ci/build_opensim.sh
-CACHE_DIR="/host$(pwd)/opensim-cache/linux-$(uname -m)"
-scripts/ci/build_opensim.sh --platform linux --cache-dir "$CACHE_DIR"
+# Check if OpenSim is already built (from workflow cache)
+if [ ! -d "/host$(pwd)/opensim-cache/linux-$(uname -m)/opensim-install" ]; then
+    echo "=== OpenSim not found in cache, building now ==="
+    chmod +x scripts/ci/build_opensim.sh
+    CACHE_DIR="/host$(pwd)/opensim-cache/linux-$(uname -m)"
+    scripts/ci/build_opensim.sh --platform linux --cache-dir "$CACHE_DIR"
+else
+    echo "=== OpenSim already built in workflow, using cached version ==="
+fi
 """
 
 before-test = """
@@ -94,9 +100,15 @@ LD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib64:$OP
 archs = ["universal2"]
 
 before-build = """
-chmod +x scripts/ci/build_opensim.sh
-CACHE_DIR="$(pwd)/opensim-cache/macos-universal2"
-scripts/ci/build_opensim.sh --platform macos --cache-dir "$CACHE_DIR"
+# Check if OpenSim is already built (from workflow cache)
+if [ ! -d "$(pwd)/opensim-cache/macos-universal2/opensim-install" ]; then
+    echo "=== OpenSim not found in cache, building now ==="
+    chmod +x scripts/ci/build_opensim.sh
+    CACHE_DIR="$(pwd)/opensim-cache/macos-universal2"
+    scripts/ci/build_opensim.sh --platform macos --cache-dir "$CACHE_DIR"
+else
+    echo "=== OpenSim already built in workflow, using cached version ==="
+fi
 """
 
 environment = { MACOSX_DEPLOYMENT_TARGET = "11.0", CMAKE_OSX_ARCHITECTURES = "x86_64;arm64", OPENSIM_INSTALL_DIR = "$(pwd)/opensim-cache/macos-universal2/opensim-install" }
@@ -110,17 +122,18 @@ DYLD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib" de
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
 
-# Install delvewheel for Windows wheel repair, then build OpenSim
+# Install delvewheel for Windows wheel repair and consolidate DLLs
 before-build = [
     "pip install delvewheel",
-    "powershell -ExecutionPolicy Bypass -File scripts/ci/build_opensim.ps1 -CacheDir \"{project}/opensim-cache/windows-AMD64\" -Jobs 4"
+    # Check if OpenSim is built, build if missing
+    "powershell -Command \"if (-not (Test-Path '{project}/opensim-cache/windows-AMD64/opensim-install')) { Write-Host '=== OpenSim not found in cache, building now ==='; powershell -ExecutionPolicy Bypass -File scripts/ci/build_opensim.ps1 -CacheDir '{project}/opensim-cache/windows-AMD64' -Jobs 4 } else { Write-Host '=== OpenSim already built in workflow, using cached version ===' }\"",
+    # Consolidate all DLLs into single directory for delvewheel (similar to pyvalhalla approach)
+    "powershell -Command \"Write-Host '=== Consolidating DLLs to lib/windows ==='; New-Item -ItemType Directory -Force -Path 'lib/windows' | Out-Null; Get-ChildItem -Path '{project}/opensim-cache/windows-AMD64' -Filter '*.dll' -Recurse -ErrorAction SilentlyContinue | Copy-Item -Destination 'lib/windows' -Force; $count = (Get-ChildItem 'lib/windows/*.dll' -ErrorAction SilentlyContinue | Measure-Object).Count; Write-Host \\\"Copied $count DLLs to lib/windows\\\"\""
 ]
 
 # Set environment variables for DLL discovery
 environment = { OPENSIM_INSTALL_DIR = "{project}/opensim-cache/windows-AMD64/opensim-install", OPENSIM_CACHE_DIR = "{project}/opensim-cache/windows-AMD64" }
 
 # Use delvewheel to repair the wheel and bundle DLL dependencies
-# Add all potential DLL directories from the cache
-repair-wheel-command = """
-delvewheel repair -w {dest_dir} {wheel} --add-path %OPENSIM_CACHE_DIR%\\opensim-install\\bin --add-path %OPENSIM_CACHE_DIR%\\opensim-install\\sdk\\bin --add-path %OPENSIM_CACHE_DIR%\\opensim-install\\sdk\\Simbody\\bin --add-path %OPENSIM_CACHE_DIR%\\dependencies-install\\bin --add-path %OPENSIM_CACHE_DIR%\\dependencies-install\\simbody\\bin --add-path %OPENSIM_CACHE_DIR%\\dependencies-install\\ezc3d\\bin
-"""
+# All DLLs consolidated into lib/windows by before-build (clean approach like pyvalhalla)
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --add-path lib/windows"
