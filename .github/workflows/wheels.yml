@@ -171,6 +171,10 @@ jobs:
         env:
           # Only workflow-specific environment variables here
           OPENSIM_SHA: ${{ steps.opensim-sha.outputs.opensim_sha }}
+          # Set OPENSIM_INSTALL_DIR for Windows to ensure CMake finds cached build
+          # Linux/macOS set this in pyproject.toml environment, but Windows needs it here
+          # to pass through scikit-build-core's isolated build environment
+          OPENSIM_INSTALL_DIR: ${{ runner.os == 'Windows' && format('{0}/opensim-cache/windows-AMD64/opensim-install', github.workspace) || '' }}
 
       - name: Verify clean directory
         run: git diff --exit-code

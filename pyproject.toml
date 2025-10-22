@@ -131,8 +131,9 @@ before-build = [
     "powershell -Command \"Write-Host '=== Consolidating DLLs to lib/windows ==='; New-Item -ItemType Directory -Force -Path 'lib/windows' | Out-Null; Get-ChildItem -Path '{project}/opensim-cache/windows-AMD64' -Filter '*.dll' -Recurse -ErrorAction SilentlyContinue | Copy-Item -Destination 'lib/windows' -Force; $count = (Get-ChildItem 'lib/windows/*.dll' -ErrorAction SilentlyContinue | Measure-Object).Count; Write-Host \\\"Copied $count DLLs to lib/windows\\\"\""
 ]
 
-# Set environment variables for DLL discovery
-environment = { OPENSIM_INSTALL_DIR = "{project}/opensim-cache/windows-AMD64/opensim-install", OPENSIM_CACHE_DIR = "{project}/opensim-cache/windows-AMD64" }
+# Set environment variable using $(pwd) which works on Windows
+# Pass it both as env var and as CMAKE_ARGS to ensure it reaches CMake through isolated build
+environment = { OPENSIM_INSTALL_DIR = "$(pwd)/opensim-cache/windows-AMD64/opensim-install", CMAKE_ARGS = "-DOPENSIM_INSTALL_DIR=$(pwd)/opensim-cache/windows-AMD64/opensim-install" }
 
 # Use delvewheel to repair the wheel and bundle DLL dependencies
 # All DLLs consolidated into lib/windows by before-build (clean approach like pyvalhalla)
