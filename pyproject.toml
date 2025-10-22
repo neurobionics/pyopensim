@@ -120,7 +120,7 @@ before-build = [
 environment = { OPENSIM_INSTALL_DIR = "{project}/opensim-cache/windows-AMD64/opensim-install", OPENSIM_CACHE_DIR = "{project}/opensim-cache/windows-AMD64" }
 
 # Use delvewheel to repair the wheel and bundle DLL dependencies
-# Use environment variable for path since {project} placeholder doesn't expand in --add-path argument
+# Add all potential DLL directories from the cache
 repair-wheel-command = """
-powershell -ExecutionPolicy Bypass -File '{project}/scripts/ci/repair_wheel.ps1' -Wheel '{wheel}' -Dest '{dest_dir}'
+delvewheel repair -w {dest_dir} {wheel} --add-path %OPENSIM_CACHE_DIR%\\opensim-install\\bin --add-path %OPENSIM_CACHE_DIR%\\opensim-install\\sdk\\bin --add-path %OPENSIM_CACHE_DIR%\\opensim-install\\sdk\\Simbody\\bin --add-path %OPENSIM_CACHE_DIR%\\dependencies-install\\bin --add-path %OPENSIM_CACHE_DIR%\\dependencies-install\\simbody\\bin --add-path %OPENSIM_CACHE_DIR%\\dependencies-install\\ezc3d\\bin
 """
