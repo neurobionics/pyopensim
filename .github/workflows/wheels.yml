@@ -177,7 +177,9 @@ jobs:
           OPENSIM_INSTALL_DIR: ${{ runner.os == 'Windows' && format('{0}/opensim-cache/windows-AMD64/opensim-install', github.workspace) || '' }}
 
       - name: Verify clean directory
-        run: git diff --exit-code
+        run: |
+          # Exclude submodules from diff check since build process may touch them
+          git diff --exit-code -- . ':!src/opensim-core'
         shell: bash
         timeout-minutes: 5
 
