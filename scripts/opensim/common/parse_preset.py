@@ -101,9 +101,10 @@ def format_cmake_value(value: Any) -> str:
     # Convert to string
     value_str = str(value)
 
-    # Quote if contains spaces or special characters
-    # CMake semicolon is used for lists, so we need to preserve it
-    if ' ' in value_str or '"' in value_str:
+    # Quote if contains spaces, semicolons, or other special characters
+    # CMake semicolon is used for lists, so we need to preserve it but also quote it
+    # to prevent shell interpretation as command separator
+    if ' ' in value_str or ';' in value_str or '"' in value_str:
         # Escape any existing quotes
         value_str = value_str.replace('"', '\\"')
         return f'"{value_str}"'
