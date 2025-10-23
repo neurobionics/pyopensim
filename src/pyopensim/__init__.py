@@ -144,17 +144,25 @@ if tools:
         except AttributeError:
             pass  # Class doesn't exist in this module
 
-# Import version from package metadata
+# Import version information
+# Try to import from _version.py (generated during build), fallback to package metadata
 try:
-    from importlib.metadata import version
-    __version__ = version("pyopensim")
+    from ._version import __version__, __opensim_version__
 except ImportError:
-    # Fallback for Python < 3.8
+    # Fallback to package metadata
     try:
-        from importlib_metadata import version
+        from importlib.metadata import version
         __version__ = version("pyopensim")
+        __opensim_version__ = __version__  # Best guess
     except ImportError:
-        __version__ = "0.0.0"  # Fallback version
+        # Fallback for Python < 3.8
+        try:
+            from importlib_metadata import version
+            __version__ = version("pyopensim")
+            __opensim_version__ = __version__  # Best guess
+        except ImportError:
+            __version__ = "0.0.0"  # Fallback version
+            __opensim_version__ = "0.0.0"
 
 # Set up geometry path if available
 _geometry_path = os.path.join(_curFolder, 'Geometry')
@@ -183,7 +191,7 @@ __all__ = [
     'Muscle', 'CoordinateActuator', 'PointActuator',
     'InverseKinematicsTool', 'InverseDynamicsTool',
     'ForwardTool', 'AnalyzeTool',
-    '__version__'
+    '__version__', '__opensim_version__'
 ]
 
 # Filter out None values from __all__ (for optional modules that failed to import)

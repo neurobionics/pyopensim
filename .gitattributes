@@ -1,0 +1,3 @@
+# Ensure PowerShell scripts always use Windows line endings (CRLF)
+# This prevents parse errors when running .ps1 files on Windows
+*.ps1 text eol=crlf

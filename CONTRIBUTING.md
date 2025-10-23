@@ -63,6 +63,88 @@ We use an automated process to generate initial stubs:
    - Examples showing the before/after behavior
    - Any test code that validates the changes
 
+## Versioning Policy
+
+PyOpenSim uses a 4-digit versioning scheme that directly tracks the OpenSim core version:
+
+### Version Format
+
+```
+<MAJOR>.<MINOR>.<PATCH>.<BUILD>
+```
+
+- **Base version** (e.g., `4.5.2`): First 3 digits match the bundled OpenSim core version exactly
+- **Build number** (4th digit): Python binding-specific fixes or improvements (defaults to 0)
+
+### When to Bump Versions
+
+**Never manually edit version numbers!** Versions are automatically extracted from OpenSim's CMakeLists.txt.
+
+**For OpenSim core updates:**
+1. Update the `src/opensim-core` git submodule to the desired OpenSim version
+2. The version is automatically detected from OpenSim's CMakeLists.txt during build
+3. Example: Updating submodule to OpenSim 4.6.0 → PyOpenSim becomes 4.6.0.0
+
+**For Python binding fixes (without OpenSim update):**
+1. Set the `BUILD_NUMBER` environment variable before building
+2. This sets the 4th digit of the version
+3. Example: Fix type stubs for OpenSim 4.5.2 → Build with `BUILD_NUMBER=1` → Version becomes 4.5.2.1
+
+### Building with Custom Build Numbers
+
+**Local development:**
+```bash
+# Build with build number for binding fix
+BUILD_NUMBER=1 make build
+```
+
+**CI/CD (GitHub Actions):**
+```yaml
+env:
+  BUILD_NUMBER: 1  # Set when needed for binding fixes
+```
+
+### Release Process
+
+1. **For OpenSim version updates:**
+   ```bash
+   # Update OpenSim submodule
+   cd src/opensim-core
+   git checkout <opensim-tag-or-commit>
+   cd ../..
+   git add src/opensim-core
+   git commit -m "chore: update OpenSim to version X.Y.Z"
+   ```
+
+2. **For binding-only fixes:**
+   - Increment `BUILD_NUMBER` from previous release
+   - Example: `4.5.2.1` → `4.5.2.2`
+   - Document changes in release notes
+
+3. **Version verification:**
+   ```python
+   import pyopensim
+   print(pyopensim.__version__)         # Full version (e.g., "4.5.2.1")
+   print(pyopensim.__opensim_version__)  # OpenSim core version (e.g., "4.5.2")
+   ```
+
+### Examples
+
+**Scenario 1: New OpenSim release**
+- OpenSim releases 4.6.0
+- Update submodule to OpenSim 4.6.0
+- Build → PyOpenSim 4.6.0.0
+
+**Scenario 2: Fix type stubs**
+- Current: PyOpenSim 4.5.2.0
+- Fix type stubs, improve bindings
+- Build with `BUILD_NUMBER=1` → PyOpenSim 4.5.2.1
+
+**Scenario 3: Another binding fix**
+- Current: PyOpenSim 4.5.2.1
+- Fix build system, update documentation
+- Build with `BUILD_NUMBER=2` → PyOpenSim 4.5.2.2
+
 ## General Contributing Guidelines
 
 ### Setting Up Development Environment

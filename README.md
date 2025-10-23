@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="#"><img src="https://img.shields.io/badge/supports-linux,%20mac-blue" alt="support"></a>
+  <a href="#"><img src="https://img.shields.io/badge/supports-linux,%20macos,%20windows-blue" alt="support"></a>
   <a href="https://github.com/neurobionics/pyopensim/actions"><img src="https://img.shields.io/github/actions/workflow/status/neurobionics/pyopensim/wheels.yml" alt="build"></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="kernel"></a>  
   <a href="https://badge.fury.io/py/pyopensim"><img src="https://badge.fury.io/py/pyopensim.svg" alt="pypi"></a>
@@ -16,11 +16,8 @@
 
 - **Portable**: Self-contained Python wheels with bundled OpenSim libraries
 - **Type Hints**: Comprehensive `.pyi` stub files for excellent IDE support and type checking
-- **Cross-Platform**: Native support for Windows (work in progress), macOS, and Linux
+- **Cross-Platform**: Native support for Linux, macOS, and Windows
 - **Official Bindings**: Uses OpenSim's native SWIG bindings for full API compatibility
-
-> [!NOTE]
-> The Windows build is currently a work in progress. Please use WSL to install our Linux wheels instead.
 
 ## Installation
 
@@ -45,6 +42,10 @@ While the OpenSim team provide an excellent [conda package](https://anaconda.org
 ```python
 import pyopensim as osim
 
+# Check versions
+print(f"PyOpenSim version: {osim.__version__}")
+print(f"OpenSim core version: {osim.__opensim_version__}")
+
 # Create a simple model
 model = osim.Model()
 model.setName("MyModel")
@@ -58,14 +59,35 @@ state = model.initSystem()
 print(f"Model has {model.getNumBodies()} bodies")
 ```
 
+## Versioning
+
+PyOpenSim uses a 4-digit versioning scheme that directly tracks the OpenSim core version:
+
+- **Version format**: `<MAJOR>.<MINOR>.<PATCH>.<BUILD>`
+  - Example: `4.5.2.0` - Matches OpenSim 4.5.2 exactly
+  - Example: `4.5.2.1` - First Python binding fix for OpenSim 4.5.2
+  - Example: `4.5.2.2` - Second Python binding fix for OpenSim 4.5.2
+
+- **What the version tells you**:
+  - The first 3 digits (e.g., `4.5.2`) match the bundled OpenSim core version exactly
+  - The 4th digit indicates Python binding-specific fixes or improvements
+  - A build number of `0` means the bindings match OpenSim without additional changes
+
+This makes it easy to know which OpenSim version you're using:
+```python
+import pyopensim as osim
+print(osim.__version__)          # e.g., "4.5.2.0" or "4.5.2.1"
+print(osim.__opensim_version__)  # e.g., "4.5.2" (always the core version)
+```
+
 ## PyPI Distribution
 
 pyopensim is automatically built and deployed to [PyPI](https://pypi.org/project/pyopensim/) using:
 
 - **Automated Builds**: GitHub Actions CI/CD builds wheels for all platforms
-- **cibuildwheel**: Ensures compatibility across Python versions and platforms  
+- **cibuildwheel**: Ensures compatibility across Python versions and platforms
 - **Bundled Libraries**: All OpenSim dependencies are included in the wheels
-- **Version Management**: Semantic versioning aligned with OpenSim releases (work in progress)
+- **Version Management**: Semantic versioning automatically aligned with OpenSim releases
 - **Automated Tests**: Automated testing ensures each release works correctly (work in progress)
 
 This provides an alternative distribution method that complements the official OpenSim library.
@@ -94,8 +116,9 @@ To use the official OpenSim conda package, checkout this [package](https://anaco
 
 ## Development
 
-This project builds OpenSim from source to create self-contained Python wheels:
+This project builds OpenSim from source to create self-contained Python wheels.
 
+**Linux/macOS:**
 ```bash
 # Clone the repository
 git clone https://github.com/neurobionics/pyopensim.git
@@ -107,6 +130,21 @@ make setup
 # Build Python wheels
 make build
 ```
+
+**Windows:**
+```powershell
+# Clone the repository
+git clone https://github.com/neurobionics/pyopensim.git
+cd pyopensim
+
+# Build OpenSim and dependencies
+.\make.ps1 setup
+
+# Build Python wheels
+.\make.ps1 build
+```
+
+**See [WINDOWS.md](WINDOWS.md) for detailed Windows build instructions.**
 
 The build process includes:
 - Compiling OpenSim's C++ libraries and dependencies

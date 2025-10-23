@@ -39,13 +39,13 @@ else ifeq ($(PLATFORM),linux)
 	@./scripts/opensim/setup_opensim_linux.sh
 else ifeq ($(PLATFORM),windows)
 	@echo "Detected Windows, running Windows setup script..."
-	@powershell -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1
+	@powershell -ExecutionPolicy Bypass -File .\scripts\opensim\setup_opensim_windows.ps1
 else
 	@echo "Unsupported platform: $(PLATFORM)"
 	@echo "Please run the appropriate setup script manually:"
 	@echo "  - Linux: ./scripts/opensim/setup_opensim_linux.sh"
 	@echo "  - macOS: ./scripts/opensim/setup_opensim_macos.sh"
-	@echo "  - Windows: powershell -ExecutionPolicy Bypass -File ./scripts/opensim/setup_opensim_windows.ps1"
+	@echo "  - Windows: powershell -File .\scripts\opensim\setup_opensim_windows.ps1"
 	@exit 1
 endif
 
@@ -53,28 +53,44 @@ setup: check-deps setup-opensim ## Complete setup: dependencies + OpenSim + Pyth
 	@echo "Setup complete! Use 'make build' to build Python bindings."
 
 build: ## Build the Python bindings
-	pip install -v .[test]
+	uv build
 
 check:
 	mypy src/pyopensim
 
 clean: ## Clean build artifacts
+ifeq ($(PLATFORM),windows)
+	@if exist build\cp* rmdir /s /q build\cp*
+	@if exist dist rmdir /s /q dist
+	@if exist *.egg-info rmdir /s /q *.egg-info
+	@for /d /r . %%d in (__pycache__) do @if exist "%%d" rmdir /s /q "%%d"
+	@del /s /q *.pyc 2>nul || exit 0
+else
 	rm -rf build/cp*
 	rm -rf dist/
 	rm -rf *.egg-info/
 	find . -name "*.pyc" -delete
 	find . -name "__pycache__" -delete -type d
+endif
 
 clean-all: ## Clean all artifacts
+ifeq ($(PLATFORM),windows)
+	@if exist build rmdir /s /q build
+	@if exist dist rmdir /s /q dist
+	@if exist *.egg-info rmdir /s /q *.egg-info
+	@for /d /r . %%d in (__pycache__) do @if exist "%%d" rmdir /s /q "%%d"
+	@del /s /q *.pyc 2>nul || exit 0
+else
 	rm -rf build/
 	rm -rf dist/
 	rm -rf *.egg-info/
 	find . -name "*.pyc" -delete
 	find . -name "__pycache__" -delete -type d
+endif
 
 cibw-test:
 	@echo "Running CIBW tests..."
 	./scripts/cibw_local_wheels.sh
 
 test: ## Run tests
-	python -m pytest tests
+	uv run pytest tests
