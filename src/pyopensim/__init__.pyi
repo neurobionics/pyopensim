@@ -3,6 +3,7 @@ from . import actuators, analyses, common, simbody, simulation, tools
 
 # Version is imported from package metadata
 __version__: str
+__opensim_version__: str
 
 # Optional modules - mirror the runtime try/except behavior
 try:
@@ -65,5 +66,5 @@ __all__ = [
     'Muscle', 'CoordinateActuator', 'PointActuator',
     'InverseKinematicsTool', 'InverseDynamicsTool',
     'ForwardTool', 'AnalyzeTool',
-    '__version__'
+    '__version__', '__opensim_version__'
 ]

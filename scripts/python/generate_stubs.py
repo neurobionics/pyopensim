@@ -183,64 +183,87 @@ def post_process_all_stubs(output_dir: Path) -> None:
 
 
 def create_init_stub(output_dir: Path) -> None:
-    """Create the main __init__.pyi file with proper imports and exports."""
-    init_stub_content = '''"""PyOpenSim: Python bindings for OpenSim."""
-from typing import Any
+    """Create the main __init__.pyi file with proper imports and exports.
 
-# Import all modules
-from . import actuators as actuators
-from . import analyses as analyses  
-from . import common as common
-from . import simbody as simbody
-from . import simulation as simulation
-from . import tools as tools
+    This creates a comprehensive stub that matches the runtime behavior of __init__.py,
+    enabling IDE autocomplete for both structured imports (pyopensim.simulation.Model)
+    and flat imports (pyopensim.Model).
+    """
+    init_stub_content = '''from typing import Any
+from . import actuators, analyses, common, simbody, simulation, tools
 
-# Re-export commonly used classes for convenience
-# Note: These imports may fail if the classes don't exist in the actual modules
-try:
-    from .simulation import Body as Body
-    from .simulation import Model as Model
-    from .simulation import Manager as Manager
-except ImportError:
-    # Fallback if classes don't exist
-    Body: Any
-    Model: Any
-    Manager: Any
-
-try:
-    from .common import Vec3 as Vec3
-    from .common import Transform as Transform
-    from .common import Inertia as Inertia
-except ImportError:
-    # Fallback if classes don't exist
-    Vec3: Any
-    Transform: Any
-    Inertia: Any
-
-try:
-    from .simulation import PinJoint as PinJoint
-except ImportError:
-    PinJoint: Any
-
-try:
-    from .actuators import Millard2012EquilibriumMuscle as Millard2012EquilibriumMuscle
-except ImportError:
-    Millard2012EquilibriumMuscle: Any
-
-# Version info
+# Version is imported from package metadata
 __version__: str
+__opensim_version__: str
+
+# Optional modules - mirror the runtime try/except behavior
+try:
+    from . import examplecomponents
+except ImportError:
+    examplecomponents = None
+
+try:
+    from . import moco
+except ImportError:
+    moco = None
+
+try:
+    from . import report
+except ImportError:
+    report = None
+
+# Re-exported classes from simbody
+from .simbody import Vec3, Rotation, Transform, Inertia, Gray, SimTK_PI
+
+# Re-exported classes from common
+from .common import Component, Property, Storage, Array, StepFunction, ConsoleReporter
+
+# Re-exported classes from simulation
+from .simulation import (
+    Model,
+    Manager,
+    State,
+    Body,
+    PinJoint,
+    PhysicalOffsetFrame,
+    Ellipsoid,
+    Millard2012EquilibriumMuscle,
+    PrescribedController,
+    InverseKinematicsSolver,
+    InverseDynamicsSolver
+)
+
+# Re-exported classes from actuators
+from .actuators import Muscle, CoordinateActuator, PointActuator
+
+# Re-exported classes from tools
+from .tools import InverseKinematicsTool, InverseDynamicsTool, ForwardTool, AnalyzeTool
 
 __all__ = [
-    "simbody", "common", "simulation", "actuators", "analyses", "tools",
-    "Model", "Manager", "Body", "Vec3", "Transform", 
-    "Inertia", "PinJoint", "Millard2012EquilibriumMuscle",
-    "__version__"
+    # Core modules
+    'simbody', 'common', 'simulation', 'actuators', 'analyses', 'tools',
+    # Optional modules (if available)
+    'examplecomponents', 'moco', 'report',
+    # Common classes at top level for convenience
+    'Model', 'Manager', 'State', 'Body',
+    'Component', 'Property',
+    'Vec3', 'Rotation', 'Transform', 'Inertia',
+    'PinJoint', 'PhysicalOffsetFrame', 'Ellipsoid',
+    'Millard2012EquilibriumMuscle', 'PrescribedController',
+    'StepFunction', 'ConsoleReporter',
+    'Gray', 'SimTK_PI',
+    'Storage', 'Array',
+    'InverseKinematicsSolver', 'InverseDynamicsSolver',
+    'Muscle', 'CoordinateActuator', 'PointActuator',
+    'InverseKinematicsTool', 'InverseDynamicsTool',
+    'ForwardTool', 'AnalyzeTool',
+    '__version__', '__opensim_version__'
 ]
 '''
-    
+
     init_file = output_dir / "pyopensim" / "__init__.pyi"
     init_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with open(init_file, 'w') as f:
         f.write(init_stub_content)
 
