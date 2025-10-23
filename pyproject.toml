@@ -37,6 +37,9 @@ build = ["cibuildwheel"]
 
 
 [tool.scikit-build]
+# Enable experimental features for custom metadata provider plugin
+experimental = true
+
 wheel.expand-macos-universal-tags = true
 # Don't specify wheel.packages - let CMake handle the installation
 
