@@ -71,7 +71,7 @@
         "strategy": "set"
       },
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/MD /W0 /utf-8",
+        "CMAKE_CXX_FLAGS": "/MD /W0 /EHsc /utf-8",
         "CMAKE_C_FLAGS": "/MD /W0 /utf-8"
       }
     },
@@ -146,7 +146,7 @@
         "strategy": "set"
       },
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "/MD /utf-8 /bigobj",
+        "CMAKE_CXX_FLAGS": "/MD /EHsc /utf-8 /bigobj",
         "CMAKE_C_FLAGS": "/MD /utf-8"
       }
     }
