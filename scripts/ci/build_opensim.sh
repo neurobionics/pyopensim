@@ -96,10 +96,32 @@ echo "Preset (core): $CORE_PRESET"
 # Get project root (assumes this script is in scripts/ci/)
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Set up paths
+# Convert CACHE_DIR to absolute path if it's relative
+# This is important when called from cibuildwheel where paths may be relative
+if [[ "$CACHE_DIR" != /* ]]; then
+    echo "Converting relative cache path to absolute..."
+    echo "  Input: $CACHE_DIR"
+    # Try to cd into it first (if it exists), otherwise make it absolute relative to project root
+    if [ -d "$CACHE_DIR" ]; then
+        CACHE_DIR="$(cd "$CACHE_DIR" && pwd)"
+    else
+        CACHE_DIR="$PROJECT_ROOT/$CACHE_DIR"
+        # Create it now so subsequent operations have absolute path
+        mkdir -p "$CACHE_DIR"
+        CACHE_DIR="$(cd "$CACHE_DIR" && pwd)"
+    fi
+    echo "  Absolute: $CACHE_DIR"
+fi
+
+# Set up paths (now using absolute CACHE_DIR)
 OPENSIM_INSTALL="$CACHE_DIR/opensim-install"
 DEPS_INSTALL="$CACHE_DIR/dependencies-install"
 SWIG_INSTALL="$CACHE_DIR/swig"
+
+echo "Resolved paths:"
+echo "  CACHE_DIR: $CACHE_DIR"
+echo "  SWIG_INSTALL: $SWIG_INSTALL"
+echo "  OPENSIM_INSTALL: $OPENSIM_INSTALL"
 
 # Check if we have a cached build
 if [ -f "$OPENSIM_INSTALL/.build_complete" ] && [ "$FORCE_REBUILD" = false ]; then

@@ -100,43 +100,57 @@ LD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib64:$OP
 archs = ["universal2"]
 
 before-build = """
-# Install compatible CMake version to avoid spdlog build failures
-# CMake 4.x removed support for cmake_minimum_required < 3.5, but spdlog v1.4.1 requires it
-echo "=== Downgrading CMake to avoid compatibility issues ===" &&
-brew unlink cmake || true &&
-# Install CMake 3.28 (last stable 3.x version before 4.0)
-# Using curl to download directly since brew may not have older versions
-ARCH=$(uname -m) &&
-if [ "$ARCH" = "arm64" ]; then
-    CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-macos-universal.tar.gz"
+echo "=== Building OpenSim for macOS ===" &&
+PROJECT_ROOT="$(pwd)" &&
+CACHE_DIR="$PROJECT_ROOT/opensim-cache/macos-universal2" &&
+OPENSIM_INSTALL="$CACHE_DIR/opensim-install" &&
+if [ -d "$OPENSIM_INSTALL" ] && [ -f "$OPENSIM_INSTALL/.build_complete" ]; then
+  echo "✓ Using cached OpenSim build from $OPENSIM_INSTALL";
 else
-    CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-macos-universal.tar.gz"
+  echo "Building OpenSim from scratch..." &&
+  echo "=== Installing CMake 3.28.3 to avoid spdlog compatibility issues ===" &&
+  brew unlink cmake || true &&
+  curl -L "https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-macos-universal.tar.gz" -o /tmp/cmake.tar.gz &&
+  sudo tar -xzf /tmp/cmake.tar.gz -C /Applications &&
+  sudo rm -rf /Applications/CMake.app &&
+  sudo mv /Applications/cmake-3.28.3-macos-universal/CMake.app /Applications/ &&
+  sudo ln -sf /Applications/CMake.app/Contents/bin/cmake /usr/local/bin/cmake &&
+  rm /tmp/cmake.tar.gz &&
+  cmake --version &&
+  brew install autoconf automake libtool pkgconfig &&
+  mkdir -p "$CACHE_DIR" &&
+  cd "$CACHE_DIR" &&
+  curl -L https://github.com/swig/swig/archive/v4.1.1.tar.gz | tar xz &&
+  cd swig-4.1.1 &&
+  ./autogen.sh &&
+  ./configure --prefix="$CACHE_DIR/swig" &&
+  make -j$(sysctl -n hw.ncpu) &&
+  make install &&
+  cd .. &&
+  rm -rf swig-4.1.1 &&
+  export PATH="$CACHE_DIR/swig/bin:$PATH" &&
+  mkdir -p dependencies-build &&
+  cd dependencies-build &&
+  cmake "$PROJECT_ROOT/src/opensim-core/dependencies" -DCMAKE_INSTALL_PREFIX="$CACHE_DIR/dependencies-install" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DSUPERBUILD_ezc3d=ON -DOPENSIM_WITH_CASADI=OFF -DOPENSIM_WITH_TROPTER=OFF -DOPENSIM_WITH_MOCO=OFF &&
+  cmake --build . --config Release -j$(sysctl -n hw.ncpu) &&
+  cd .. &&
+  mkdir -p opensim-build &&
+  cd opensim-build &&
+  cmake "$PROJECT_ROOT/src/opensim-core" -DCMAKE_INSTALL_PREFIX="$OPENSIM_INSTALL" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DOPENSIM_DEPENDENCIES_DIR="$CACHE_DIR/dependencies-install" -DCMAKE_PREFIX_PATH="$CACHE_DIR/dependencies-install" -DBUILD_JAVA_WRAPPING=OFF -DBUILD_PYTHON_WRAPPING=OFF -DBUILD_TESTING=OFF -DBUILD_API_EXAMPLES=OFF -DOPENSIM_C3D_PARSER=ezc3d -DOPENSIM_WITH_CASADI=OFF -DOPENSIM_WITH_TROPTER=OFF -DOPENSIM_WITH_MOCO=OFF -DOPENSIM_INSTALL_UNIX_FHS=OFF -DSWIG_DIR="$CACHE_DIR/swig/share/swig" -DSWIG_EXECUTABLE="$CACHE_DIR/swig/bin/swig" &&
+  cmake --build . --config Release -j$(sysctl -n hw.ncpu) &&
+  cmake --install . &&
+  touch "$OPENSIM_INSTALL/.build_complete" &&
+  echo "✓ OpenSim build complete";
 fi &&
-echo "Downloading CMake from: $CMAKE_URL" &&
-curl -L "$CMAKE_URL" -o /tmp/cmake.tar.gz &&
-sudo tar -xzf /tmp/cmake.tar.gz -C /Applications &&
-sudo rm -rf /Applications/CMake.app &&
-sudo mv /Applications/cmake-3.28.3-macos-universal/CMake.app /Applications/ &&
-sudo ln -sf /Applications/CMake.app/Contents/bin/cmake /usr/local/bin/cmake &&
-rm /tmp/cmake.tar.gz &&
-cmake --version &&
-# Check if OpenSim is already built (from workflow cache)
-# Use {project} placeholder which expands to the project directory
-if [ ! -d "{project}/opensim-cache/macos-universal2/opensim-install" ]; then
-    echo "=== OpenSim not found in cache, building now ===" &&
-    chmod +x {project}/scripts/ci/build_opensim.sh &&
-    CACHE_DIR="{project}/opensim-cache/macos-universal2" &&
-    {project}/scripts/ci/build_opensim.sh --platform macos --cache-dir "$CACHE_DIR"
-else
-    echo "=== OpenSim already built in workflow, using cached version ==="
-fi
+export PATH="$CACHE_DIR/swig/bin:$PATH" &&
+export OPENSIM_INSTALL_DIR="$OPENSIM_INSTALL"
 """
 
-environment = { MACOSX_DEPLOYMENT_TARGET = "11.0", CMAKE_OSX_ARCHITECTURES = "x86_64;arm64", OPENSIM_INSTALL_DIR = "{project}/opensim-cache/macos-universal2/opensim-install" }
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0", CMAKE_OSX_ARCHITECTURES = "x86_64;arm64", OPENSIM_INSTALL_DIR = "$(pwd)/opensim-cache/macos-universal2/opensim-install" }
 
 repair-wheel-command = """
 echo "=== Repairing macOS wheel ===" &&
-OPENSIM_INSTALL="{project}/opensim-cache/macos-universal2/opensim-install" &&
+OPENSIM_INSTALL="$(pwd)/opensim-cache/macos-universal2/opensim-install" &&
 DYLD_LIBRARY_PATH="$OPENSIM_INSTALL/sdk/lib:$OPENSIM_INSTALL/sdk/Simbody/lib" delocate-wheel -w {dest_dir} -v {wheel}
 """
 
