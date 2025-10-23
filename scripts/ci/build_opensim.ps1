@@ -123,15 +123,12 @@ if ($Force -or -not (Test-Path $BUILD_COMPLETE)) {
     New-Item -ItemType Directory -Force -Path $DEPS_BUILD_DIR | Out-Null
     Set-Location $DEPS_BUILD_DIR
 
-    # Configure dependencies using preset (which includes all compiler flags)
+    # Configure dependencies using flags from preset
+    # Note: We can't use --preset here because the dependencies directory doesn't have CMakePresets.json
+    # Instead, we use the extracted flags from parse_preset.py
     Write-Host "Configuring dependencies..."
-    $configArgs = @(
-        $DEPS_SOURCE,
-        "--preset", "opensim-dependencies-windows",
-        "-DCMAKE_INSTALL_PREFIX=$DEPS_INSTALL"
-    )
+    $configArgs = @($DEPS_SOURCE) + $CMAKE_FLAGS + @("-DCMAKE_INSTALL_PREFIX=$DEPS_INSTALL")
 
-    # Use preset directly - it contains all necessary flags including /utf-8
     & cmake @configArgs
     if ($LASTEXITCODE -ne 0) {
         throw "CMake configuration failed for dependencies"
@@ -175,15 +172,26 @@ if ($Force -or -not (Test-Path $BUILD_COMPLETE)) {
         }
     }
 
+    # Get CMake flags from preset using Python parser
+    Write-Host "Extracting CMake flags from preset: opensim-core-windows"
+    $CORE_CMAKE_FLAGS_STR = & python $PARSE_SCRIPT $PRESETS_FILE "opensim-core-windows"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to parse preset 'opensim-core-windows'"
+    }
+
+    # Convert space-separated flags to array
+    $CORE_CMAKE_FLAGS = $CORE_CMAKE_FLAGS_STR -split ' '
+
+    Write-Host "CMake flags: $CORE_CMAKE_FLAGS_STR"
+
     # Create build directory
     New-Item -ItemType Directory -Force -Path $OPENSIM_BUILD_DIR | Out-Null
     Set-Location $OPENSIM_BUILD_DIR
 
-    # Configure OpenSim using preset (which includes all compiler flags)
+    # Configure OpenSim using flags from preset
+    # Note: OpenSim source has CMakePresets.json (we copied it), but using parsed flags for consistency
     Write-Host "Configuring OpenSim..."
-    $configArgs = @(
-        $OPENSIM_SOURCE,
-        "--preset", "opensim-core-windows",
+    $configArgs = @($OPENSIM_SOURCE) + $CORE_CMAKE_FLAGS + @(
         "-DCMAKE_INSTALL_PREFIX=$OPENSIM_INSTALL",
         "-DOPENSIM_DEPENDENCIES_DIR=$DEPS_INSTALL",
         "-DCMAKE_PREFIX_PATH=$DEPS_INSTALL",
@@ -191,7 +199,6 @@ if ($Force -or -not (Test-Path $BUILD_COMPLETE)) {
         "-DSWIG_EXECUTABLE=$SWIG_EXE"
     )
 
-    # Use preset directly - it contains all necessary flags including /utf-8 and /bigobj
     & cmake @configArgs
     if ($LASTEXITCODE -ne 0) {
         throw "CMake configuration failed for OpenSim"
