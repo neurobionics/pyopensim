@@ -189,17 +189,25 @@ cmake --build . --config Release -j"$NUM_JOBS"
 echo "Installing OpenSim..."
 cmake --install .
 
-# Mark as complete
+# Verify critical libraries exist BEFORE marking as complete
+echo "Verifying installation..."
+if [ ! -d "$INSTALL_DIR/sdk/lib" ]; then
+    echo "ERROR: Installation failed - sdk/lib directory not found"
+    exit 1
+fi
+
+# Count libraries to ensure installation succeeded
+LIB_COUNT=$(find "$INSTALL_DIR/sdk/lib" -name "*.so" -o -name "*.dylib" -o -name "*.a" 2>/dev/null | wc -l)
+if [ "$LIB_COUNT" -lt 5 ]; then
+    echo "ERROR: Installation incomplete - found only $LIB_COUNT libraries (expected at least 5)"
+    exit 1
+fi
+
+echo "✓ Found $LIB_COUNT SDK libraries"
+ls "$INSTALL_DIR/sdk/lib/" | head -10
+
+# Mark as complete ONLY after successful verification
 touch "$INSTALL_DIR/.build_complete"
 
 echo "✓ OpenSim build complete"
 echo "  Installed to: $INSTALL_DIR"
-
-# Verify critical libraries exist
-echo "Verifying installation..."
-if [ -d "$INSTALL_DIR/sdk/lib" ]; then
-    echo "✓ Found SDK libraries"
-    ls "$INSTALL_DIR/sdk/lib/" | head -10
-else
-    echo "Warning: SDK lib directory not found"
-fi
