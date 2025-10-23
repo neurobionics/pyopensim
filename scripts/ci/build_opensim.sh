@@ -125,14 +125,31 @@ echo "  OPENSIM_INSTALL: $OPENSIM_INSTALL"
 
 # Check if we have a cached build
 if [ -f "$OPENSIM_INSTALL/.build_complete" ] && [ "$FORCE_REBUILD" = false ]; then
-    echo "✓ Using cached OpenSim build from $OPENSIM_INSTALL"
+    echo "Cached OpenSim build found, validating..."
 
     # Verify cache is valid by checking for critical files
-    if [ -d "$OPENSIM_INSTALL/sdk/lib" ]; then
+    CACHE_VALID=true
+
+    if [ ! -d "$OPENSIM_INSTALL/sdk/lib" ]; then
+        echo "⚠ Cache validation failed: sdk/lib directory missing"
+        CACHE_VALID=false
+    else
+        # Check if any libraries exist
+        LIB_COUNT=$(find "$OPENSIM_INSTALL/sdk/lib" -name "*.so" -o -name "*.dylib" -o -name "*.a" 2>/dev/null | wc -l)
+        if [ "$LIB_COUNT" -lt 5 ]; then
+            echo "⚠ Cache validation failed: found only $LIB_COUNT libraries (expected at least 5)"
+            CACHE_VALID=false
+        fi
+    fi
+
+    if [ "$CACHE_VALID" = true ]; then
         echo "✓ Cache validation passed"
+        echo "  Libraries: $(find "$OPENSIM_INSTALL/sdk/lib" -name "*.so" -o -name "*.dylib" -o -name "*.a" 2>/dev/null | wc -l)"
         ls -la "$OPENSIM_INSTALL/sdk/lib/" | head -10
     else
-        echo "Warning: Cache appears corrupted, rebuilding..."
+        echo "⚠ Cache appears corrupted, forcing rebuild..."
+        # Remove corrupted cache to ensure clean rebuild
+        rm -rf "$OPENSIM_INSTALL"
         FORCE_REBUILD=true
     fi
 fi

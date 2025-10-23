@@ -112,6 +112,7 @@ jobs:
             opensim-${{ matrix.os }}-${{ runner.arch }}-
 
       # Check if OpenSim was actually restored (exact or partial cache match)
+      # Also validate cache integrity to detect corrupted/empty caches
       - name: Check OpenSim build status
         id: opensim-status
         run: |
@@ -123,13 +124,60 @@ jobs:
             OPENSIM_DIR="opensim-cache/windows-AMD64/opensim-install"
           fi
 
-          if [ -d "$OPENSIM_DIR" ]; then
-            echo "needs_build=false" >> $GITHUB_OUTPUT
-            echo "OpenSim found in cache directory: $OPENSIM_DIR"
-          else
+          # Check if directory exists
+          if [ ! -d "$OPENSIM_DIR" ]; then
             echo "needs_build=true" >> $GITHUB_OUTPUT
             echo "OpenSim not found, will build from source"
+            exit 0
           fi
+
+          # Directory exists - validate it's not corrupted
+          echo "OpenSim directory found, validating cache integrity..."
+
+          # Check for .build_complete marker
+          if [ ! -f "$OPENSIM_DIR/.build_complete" ]; then
+            echo "needs_build=true" >> $GITHUB_OUTPUT
+            echo "WARNING: Cache corrupted - missing .build_complete marker"
+            echo "Will rebuild from source"
+            exit 0
+          fi
+
+          # Check for sdk/lib directory
+          if [ ! -d "$OPENSIM_DIR/sdk/lib" ]; then
+            echo "needs_build=true" >> $GITHUB_OUTPUT
+            echo "WARNING: Cache corrupted - missing sdk/lib directory"
+            echo "Will rebuild from source"
+            exit 0
+          fi
+
+          # Check if libraries exist (platform-specific extensions)
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            LIB_COUNT=$(find "$OPENSIM_DIR/sdk/lib" -name "*.lib" -o -name "*.dll" 2>/dev/null | wc -l)
+          else
+            LIB_COUNT=$(find "$OPENSIM_DIR/sdk/lib" -name "*.so" -o -name "*.dylib" 2>/dev/null | wc -l)
+          fi
+
+          if [ "$LIB_COUNT" -lt 5 ]; then
+            echo "needs_build=true" >> $GITHUB_OUTPUT
+            echo "WARNING: Cache corrupted - found only $LIB_COUNT libraries (expected at least 5)"
+            echo "Will rebuild from source"
+            exit 0
+          fi
+
+          # Cache is valid
+          echo "needs_build=false" >> $GITHUB_OUTPUT
+          echo "✓ OpenSim cache validated successfully"
+          echo "  Location: $OPENSIM_DIR"
+          echo "  Libraries found: $LIB_COUNT"
+        shell: bash
+
+      # Clean up corrupted cache if validation failed
+      - name: Remove corrupted cache
+        if: steps.opensim-status.outputs.needs_build == 'true' && steps.opensim-cache.outputs.cache-hit == 'true'
+        run: |
+          echo "Removing corrupted cache directory..."
+          rm -rf opensim-cache
+          mkdir -p opensim-cache
         shell: bash
 
       # Build OpenSim separately to cache it before wheel build
@@ -167,9 +215,47 @@ jobs:
           # 4. Currently working via environment variable fallback (CMakeLists.txt:126-131)
           OPENSIM_INSTALL_DIR: ${{ runner.os == 'Windows' && format('{0}/opensim-cache/windows-AMD64/opensim-install', github.workspace) || '' }}
 
-      # Save cache for Linux and macOS after cibuildwheel (since build happens inside cibuildwheel environment)
-      - name: Save OpenSim cache (Linux/macOS)
+      # Validate OpenSim build before saving cache
+      - name: Validate OpenSim cache (Linux/macOS)
+        id: validate-cache
         if: runner.os != 'Windows' && steps.opensim-cache.outputs.cache-hit != 'true'
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            OPENSIM_DIR="opensim-cache/linux-$(uname -m)/opensim-install"
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            OPENSIM_DIR="opensim-cache/macos-universal2/opensim-install"
+          fi
+
+          # Check if build completed successfully
+          if [ ! -f "$OPENSIM_DIR/.build_complete" ]; then
+            echo "cache_valid=false" >> $GITHUB_OUTPUT
+            echo "ERROR: Build did not complete - .build_complete marker missing"
+            exit 1
+          fi
+
+          # Check if critical directories exist
+          if [ ! -d "$OPENSIM_DIR/sdk/lib" ]; then
+            echo "cache_valid=false" >> $GITHUB_OUTPUT
+            echo "ERROR: Build incomplete - sdk/lib directory missing"
+            exit 1
+          fi
+
+          # Check if any libraries exist
+          LIB_COUNT=$(find "$OPENSIM_DIR/sdk/lib" -name "*.so" -o -name "*.dylib" | wc -l)
+          if [ "$LIB_COUNT" -lt 5 ]; then
+            echo "cache_valid=false" >> $GITHUB_OUTPUT
+            echo "ERROR: Build incomplete - found only $LIB_COUNT libraries (expected at least 5)"
+            exit 1
+          fi
+
+          echo "cache_valid=true" >> $GITHUB_OUTPUT
+          echo "✓ Cache validation passed - found $LIB_COUNT libraries"
+        shell: bash
+
+      # Save cache for Linux and macOS after cibuildwheel (since build happens inside cibuildwheel environment)
+      # Only save if validation passed
+      - name: Save OpenSim cache (Linux/macOS)
+        if: runner.os != 'Windows' && steps.opensim-cache.outputs.cache-hit != 'true' && steps.validate-cache.outputs.cache_valid == 'true'
         uses: actions/cache/save@v4
         with:
           path: |
