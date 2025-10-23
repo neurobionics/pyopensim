@@ -133,17 +133,9 @@ jobs:
         shell: bash
 
       # Build OpenSim separately to cache it before wheel build
-      # NOTE: Linux builds happen inside cibuildwheel's manylinux container
-      # to ensure BLAS/LAPACK compatibility. See pyproject.toml [tool.cibuildwheel.linux] before-build.
-      # Only macOS and Windows build outside the container.
-
-      - name: Build OpenSim (macOS)
-        if: runner.os == 'macOS' && steps.opensim-status.outputs.needs_build == 'true'
-        run: |
-          chmod +x scripts/ci/build_opensim.sh
-          CACHE_DIR="$(pwd)/opensim-cache/macos-universal2"
-          scripts/ci/build_opensim.sh --platform macos --cache-dir "$CACHE_DIR"
-        shell: bash
+      # NOTE: Linux and macOS builds happen inside cibuildwheel's environment
+      # to ensure compatibility and correct CMake versions.
+      # Only Windows builds outside the container due to Visual Studio requirements.
 
       - name: Build OpenSim (Windows)
         if: runner.os == 'Windows' && steps.opensim-status.outputs.needs_build == 'true'
@@ -151,11 +143,10 @@ jobs:
           powershell -ExecutionPolicy Bypass -File scripts/ci/build_opensim.ps1 -CacheDir "${{ github.workspace }}/opensim-cache/windows-AMD64" -Jobs 4
         shell: bash
 
-      # Save the cache immediately after building OpenSim, even if wheel build fails later
-      # Only save if we built something new OR if there was a restore-keys match (not exact match)
-      # Note: Linux builds happen inside cibuildwheel, so we save cache after cibuildwheel for Linux
-      - name: Save OpenSim cache (macOS/Windows)
-        if: runner.os != 'Linux' && steps.opensim-cache.outputs.cache-hit != 'true' && steps.opensim-status.outputs.needs_build == 'true'
+      # Save the cache immediately after building OpenSim for Windows only
+      # Linux and macOS build inside cibuildwheel, so their cache is saved after cibuildwheel
+      - name: Save OpenSim cache (Windows)
+        if: runner.os == 'Windows' && steps.opensim-cache.outputs.cache-hit != 'true' && steps.opensim-status.outputs.needs_build == 'true'
         uses: actions/cache/save@v4
         with:
           path: |
@@ -176,9 +167,9 @@ jobs:
           # 4. Currently working via environment variable fallback (CMakeLists.txt:126-131)
           OPENSIM_INSTALL_DIR: ${{ runner.os == 'Windows' && format('{0}/opensim-cache/windows-AMD64/opensim-install', github.workspace) || '' }}
 
-      # Save cache for Linux after cibuildwheel (since build happens inside container)
-      - name: Save OpenSim cache (Linux)
-        if: runner.os == 'Linux' && steps.opensim-cache.outputs.cache-hit != 'true'
+      # Save cache for Linux and macOS after cibuildwheel (since build happens inside cibuildwheel environment)
+      - name: Save OpenSim cache (Linux/macOS)
+        if: runner.os != 'Windows' && steps.opensim-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: |
