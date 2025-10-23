@@ -10,7 +10,10 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyopensim"
-version = "0.2.1"
+# Version is dynamically extracted from OpenSim's CMakeLists.txt during build
+# Format: <MAJOR>.<MINOR>.<PATCH>.<BUILD> (e.g., 4.5.2.0 or 4.5.2.1)
+# Set BUILD_NUMBER env var for Python binding-specific fixes (defaults to 0)
+dynamic = ["version"]
 description="PyOpenSim: Portable Python bindings for OpenSim"
 readme = "README.md"
 authors = [ { name = "Senthur Ayyappan", email = "senthurayyappan@umich.edu" } ]
@@ -46,6 +49,11 @@ logging.level = "INFO"
 
 # Parallel build configuration (adjust based on available cores)
 build.tool-args = []
+
+# Dynamic version metadata - extract from OpenSim CMakeLists.txt
+# Uses custom hook to support BUILD_NUMBER env var for binding fixes
+metadata.version.provider = "pyopensim._build_version"
+metadata.version.provider-path = "scripts/python"
 
 
 [tool.cibuildwheel]

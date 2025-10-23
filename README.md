@@ -42,6 +42,10 @@ While the OpenSim team provide an excellent [conda package](https://anaconda.org
 ```python
 import pyopensim as osim
 
+# Check versions
+print(f"PyOpenSim version: {osim.__version__}")
+print(f"OpenSim core version: {osim.__opensim_version__}")
+
 # Create a simple model
 model = osim.Model()
 model.setName("MyModel")
@@ -55,14 +59,35 @@ state = model.initSystem()
 print(f"Model has {model.getNumBodies()} bodies")
 ```
 
+## Versioning
+
+PyOpenSim uses a 4-digit versioning scheme that directly tracks the OpenSim core version:
+
+- **Version format**: `<MAJOR>.<MINOR>.<PATCH>.<BUILD>`
+  - Example: `4.5.2.0` - Matches OpenSim 4.5.2 exactly
+  - Example: `4.5.2.1` - First Python binding fix for OpenSim 4.5.2
+  - Example: `4.5.2.2` - Second Python binding fix for OpenSim 4.5.2
+
+- **What the version tells you**:
+  - The first 3 digits (e.g., `4.5.2`) match the bundled OpenSim core version exactly
+  - The 4th digit indicates Python binding-specific fixes or improvements
+  - A build number of `0` means the bindings match OpenSim without additional changes
+
+This makes it easy to know which OpenSim version you're using:
+```python
+import pyopensim as osim
+print(osim.__version__)          # e.g., "4.5.2.0" or "4.5.2.1"
+print(osim.__opensim_version__)  # e.g., "4.5.2" (always the core version)
+```
+
 ## PyPI Distribution
 
 pyopensim is automatically built and deployed to [PyPI](https://pypi.org/project/pyopensim/) using:
 
 - **Automated Builds**: GitHub Actions CI/CD builds wheels for all platforms
-- **cibuildwheel**: Ensures compatibility across Python versions and platforms  
+- **cibuildwheel**: Ensures compatibility across Python versions and platforms
 - **Bundled Libraries**: All OpenSim dependencies are included in the wheels
-- **Version Management**: Semantic versioning aligned with OpenSim releases (work in progress)
+- **Version Management**: Semantic versioning automatically aligned with OpenSim releases
 - **Automated Tests**: Automated testing ensures each release works correctly (work in progress)
 
 This provides an alternative distribution method that complements the official OpenSim library.

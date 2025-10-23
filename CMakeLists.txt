@@ -267,6 +267,48 @@ else()
     message(STATUS "Building PyOpenSim stubs without OpenSim")
 endif()
 
+# =============================================================================
+# Extract version from OpenSim CMakeLists.txt
+# =============================================================================
+if(PYOPENSIM_BUILD_WITH_OPENSIM)
+    message(STATUS "Extracting version from OpenSim CMakeLists.txt")
+
+    # Read OpenSim CMakeLists.txt
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/opensim-core/CMakeLists.txt" OPENSIM_CMAKE_CONTENT)
+
+    # Extract version components using regex
+    string(REGEX MATCH "set\\(OPENSIM_MAJOR_VERSION ([0-9]+)\\)" _ "${OPENSIM_CMAKE_CONTENT}")
+    set(PYOPENSIM_MAJOR_VERSION ${CMAKE_MATCH_1})
+
+    string(REGEX MATCH "set\\(OPENSIM_MINOR_VERSION ([0-9]+)\\)" _ "${OPENSIM_CMAKE_CONTENT}")
+    set(PYOPENSIM_MINOR_VERSION ${CMAKE_MATCH_1})
+
+    string(REGEX MATCH "set\\(OPENSIM_PATCH_VERSION ([0-9]+)\\)" _ "${OPENSIM_CMAKE_CONTENT}")
+    set(PYOPENSIM_PATCH_VERSION ${CMAKE_MATCH_1})
+
+    # Check for BUILD_NUMBER environment variable (for Python binding fixes)
+    set(PYOPENSIM_BUILD_NUMBER "0")
+    if(DEFINED ENV{BUILD_NUMBER})
+        set(PYOPENSIM_BUILD_NUMBER $ENV{BUILD_NUMBER})
+    endif()
+
+    # Create version string with 4 components: MAJOR.MINOR.PATCH.BUILD
+    set(PYOPENSIM_VERSION "${PYOPENSIM_MAJOR_VERSION}.${PYOPENSIM_MINOR_VERSION}.${PYOPENSIM_PATCH_VERSION}.${PYOPENSIM_BUILD_NUMBER}")
+
+    message(STATUS "PyOpenSim version: ${PYOPENSIM_VERSION}")
+
+    # Generate _version.py file
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/pyopensim/_version.py.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/pyopensim/_version.py"
+        @ONLY
+    )
+
+    # Install _version.py
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pyopensim/_version.py"
+            DESTINATION "${CMAKE_INSTALL_PREFIX}/pyopensim")
+endif()
+
 # ==============================================================================
 # SWIG BINDINGS CONFIGURATION
 # ==============================================================================
